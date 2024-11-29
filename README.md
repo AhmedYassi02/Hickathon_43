@@ -1,2 +1,5 @@
 # Hickathon_43
-Code of groupe 43 of Hickathon#5
+
+Repository of groupe 43 for the Hickathon 2024 #5
+
+Link to the Hackathon repository: https://github.com/hi-paris/Hickathon5
