@@ -19,8 +19,6 @@ class Transformer(ABC, BaseEstimator, TransformerMixin):
     def transform(self, X: pd.DataFrame):
         pass
 
-# EXAMPLE OF TRANSFORMER FOR CLEANING / PROCESSING
-
 
 class NewTransformer(Transformer):
     def __init__(self):
@@ -73,5 +71,33 @@ class DropCols(Transformer):
         X = X.drop(columns=self.columns)
 
         print(f">> (INFO - DropCols) columns {self.columns} is/are droped.")
+
+        return X
+
+
+class AltitudeTrans(Transformer):
+    def __init__(self, columns):
+        self.columns = columns
+        pass
+
+    def fit(self, X, y=None):
+
+        self.max_altitude: pd.Series = X[self.columns].max()
+        self.most_frequent: pd.Series = X[self.columns][
+            (X[self.columns] >= 0) &
+            (X[self.columns] <= self.max_altitude)
+        ].mode()
+
+        print(f"most_frequent Altitude: {self.most_frequent}")
+        print(f"max altitude: {self.max_altitude}")
+
+        return self
+
+    
+    def transform(self, X):
+        
+        for col in self.columns:
+            X[col] = X[col].clip(upper=self.max_altitude[col]) # For high value, we cap to the max value of train
+            X[col][X[col] < 0] = self.most_frequent[col] # Value < 0, we put the most frequent
 
         return X
