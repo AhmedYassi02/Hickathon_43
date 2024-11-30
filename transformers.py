@@ -76,11 +76,8 @@ class DateTransformer(Transformer):
         X = X.copy()
         for col in self.date_cols:
             if col == 'meteo_date':
-                X[col] = pd.to_datetime(
-                    X[col], errors='coerce').astype(int).div(10**9)
-
-                X[col] = X[col].apply(
-                    lambda x: np.cos((x * 2 * np.pi / 365.25)))
+                X[col] = pd.to_datetime(X[col], errors='coerce').dt.dayofyear.apply(
+                    lambda x: np.cos((x - 1) * 2 * np.pi / 365.25))
             else:
                 X.drop(col, axis=1, inplace=True)
             X.rename(columns={'meteo_date': 'date'}, inplace=True)
