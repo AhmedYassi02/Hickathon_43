@@ -238,10 +238,10 @@ class CleanFeatures(Transformer):
         meteo = "meteo_rain_height"
 
         print(f">> (Info) Recuperations des moyennes des données INSEE par department")
-        
+
         # Handle "meteo_rain_height"
         if meteo in self.cols_to_handle:
-            
+
             X[self.date_col] = pd.to_datetime(X[self.date_col])
             X['month'] = X[self.date_col].dt.month
             self.meteo_group_means = (
@@ -259,7 +259,6 @@ class CleanFeatures(Transformer):
                 self.department_medians[col] = (
                     X.groupby(self.department_col)[col].median()
                 )
-        
 
         print(f">> (Info) Infos medianes Insee recupérees")
 
@@ -271,7 +270,7 @@ class CleanFeatures(Transformer):
 
         # Handle "meteo_rain_height"
         if meteo in self.cols_to_handle:
-            
+
             X[self.date_col] = pd.to_datetime(X[self.date_col])
             X['month'] = X[self.date_col].dt.month
             X = pd.merge(
@@ -281,22 +280,21 @@ class CleanFeatures(Transformer):
                 on=[self.department_col, 'month']
             )
             X[meteo] = X[meteo].fillna(X['mean_rain_height'])
-            
+
             X.drop(columns=['mean_rain_height', 'month'], inplace=True)
 
         # Handle all other columns (specified in cols_to_handle, excluding rain)
         for col in self.cols_to_handle:
             if col != meteo:
-                
+
                 X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
                 X[col] = X[col].fillna(
                     X.groupby(self.department_col)[col].transform('median')
                 )
-        
+
         print(f">> (Info) Valeurs Manquantes comblées avec les Médianes.")
-                
+
         return X
-    
 
 
 class CleanTemp(Transformer):
@@ -508,4 +506,26 @@ class DummyTransformer(Transformer):
 
     def transform(self, X):
         X = pd.get_dummies(X, columns=self.columns)
+        return X
+
+
+class PrelevVol(Transformer):
+    """Remplir les valeur manquantes des colonnes prelevement volume par la minimum de la colonne par commune de cette 
+    """
+
+    def __init__(self, columns):
+        self.columns = ['prelev_volume_0', 'prelev_volume_1',
+                        'prelev_volume_2', 'prelev_other_volume_sum']
+
+    def fit(self, X, y=None):
+        self.min_vol = X.groupby('piezo_station_commune_name')[
+            self.columns].min()
+        print(
+            f">> (INFO) missing values in columns {self.columns} are filled by the minimum of the column by commune")
+        return self
+
+    def transform(self, X):
+        for col in self.columns:
+            X[col] = X[col].fillna(
+                X['piezo_station_commune_name'].map(self.min_vol[col]))
         return X
