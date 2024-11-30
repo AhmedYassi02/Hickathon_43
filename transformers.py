@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import StandardScaler
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -99,5 +100,43 @@ class AltitudeTrans(Transformer):
         for col in self.columns:
             X[col] = X[col].clip(upper=self.max_altitude[col]) # For high value, we cap to the max value of train
             X[col][X[col] < 0] = self.most_frequent[col] # Value < 0, we put the most frequent
+
+        return X
+    
+class PartialStandardScaler(Transformer):
+    """partial because only some columns can be selected for standardiation."""    
+
+    def __init__(
+            self,
+            columns: list[str],
+            *,
+            copy: bool = True,
+            with_mean: bool = True,
+            with_std: bool = True
+        ):
+        self.columns = columns
+        self.standardizer = StandardScaler(
+            copy=copy,
+            with_mean=with_mean,
+            with_std=with_std,
+        )
+
+    def fit(self, X, y=None):
+
+        self.standardizer.fit(X[self.columns])
+
+        return self
+
+    
+    def transform(self, X):
+        
+        X_standardized_np = self.standardizer.transform(X[self.columns])
+
+        X_standardized = pd.DataFrame(X_standardized_np, columns=self.standardizer.get_feature_names_out())
+
+        X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
+
+        print(f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
+
 
         return X
