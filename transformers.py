@@ -76,8 +76,7 @@ class DateTransformer(Transformer):
         X = X.copy()
         for col in self.date_cols:
             if col == 'meteo_date':
-                X[col] = pd.to_datetime(X[col], errors='coerce').apply(
-                    lambda x: np.cos(x * 2 * np.pi / 365.25))
+                X[col] = pd.to_datetime(X[col], errors='coerce').apply(lambda x: np.cos((float(x) * 2 * np.pi / 365.25)))
             else:
                 X.drop(col, axis=1, inplace=True)
             X.rename(columns={'meteo_date': 'date'}, inplace=True)
@@ -179,9 +178,13 @@ class CleanFeatures(Transformer):
         self.cols = cols
 
         if "insee_%_agri" in self.cols:
-            self.handle_insee=True 
+            self.handle_insee=True
+        else: 
+            self.handle_insee = False 
         if "meteo_rain_height" in self.cols:
             self.handle_meteo = True
+        else:
+            self.handle_meteo = False
 
 
     def fit(self, X, y=None):
