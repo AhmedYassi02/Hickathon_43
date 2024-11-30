@@ -56,8 +56,7 @@ class DropNaRate(Transformer):
 
         # Ne pas drop "meteo_temperature_min_ground"
         if 'meteo_temperature_min_ground' in self.cols_to_drop:
-            self.cols_to_drop = self.cols_to_drop.drop(
-                'meteo_temperature_min_ground')
+            self.cols_to_drop = self.cols_to_drop.drop('meteo_temperature_min_ground',errors='ignore') 
 
         print(f">> (Info) Droped columns : {self.cols_to_drop.to_list()}")
 
@@ -310,74 +309,72 @@ class CleanFeatures(Transformer):
     '''
 
     def __init__(self, cols_to_handle, department_col="piezo_station_department_code", date_col="meteo_date"):
-        # Initialize placeholders for the medians and additional parameters
         self.department_col = department_col
         self.date_col = date_col
-        self.meteo_group_means = None
         self.cols_to_handle = cols_to_handle
         self.department_medians = {}
+        self.global_means = {}
+        self.rain_means_by_month_department = None
 
     def fit(self, X, y=None):
-        # Column names
-        meteo = "meteo_rain_height"
+        print(f">> (Info) Calculating medians and means for {self.cols_to_handle}")
 
-        print(f">> (Info) Recuperations des moyennes des données INSEE par department")
-
-        # Handle "meteo_rain_height"
-        if meteo in self.cols_to_handle:
-
-            X[self.date_col] = pd.to_datetime(X[self.date_col])
-            X['month'] = X[self.date_col].dt.month
-            self.meteo_group_means = (
-                X.groupby([self.department_col, 'month'])[meteo]
-                .mean()
-                .reset_index()
-                .rename(columns={meteo: 'mean_rain_height'})
-            )
-
-        # Handle all other columns (specified in cols_to_handle, excluding rain)
+        # Ensure all columns in cols_to_handle are numeric
         for col in self.cols_to_handle:
-            if col != meteo:
+            X[col] = pd.to_numeric(X[col], errors='coerce')
 
-                X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
+        # Calculate medians for columns grouped by department and global means
+        for col in self.cols_to_handle:
+            if col != "meteo_rain_height":  # Exclude rain column for department-based medians
                 self.department_medians[col] = (
                     X.groupby(self.department_col)[col].median()
                 )
+                self.global_means[col] = X[col].mean()  # Calculate global mean for fallback
 
-        print(f">> (Info) Infos medianes Insee recupérees")
+        # Calculate mean rain by department and month
+        if "meteo_rain_height" in self.cols_to_handle:
+            X[self.date_col] = pd.to_datetime(X[self.date_col])
+            X['month'] = X[self.date_col].dt.month
+            self.rain_means_by_month_department = (
+                X.groupby([self.department_col, 'month'])["meteo_rain_height"].mean()
+            )
+            print(f">> (Info) Rainfall means by department and month calculated.")
 
+        print(f">> (Info) Medians and means successfully calculated.")
         return self
 
     def transform(self, X):
-        # Column names
-        meteo = "meteo_rain_height"
+        print(f">> (Info) Filling missing values with calculated medians and means.")
 
-        # Handle "meteo_rain_height"
-        if meteo in self.cols_to_handle:
+        # Ensure all columns in cols_to_handle are numeric
+        for col in self.cols_to_handle:
+            X[col] = pd.to_numeric(X[col], errors='coerce')
 
+        # Fill missing values for columns grouped by department with fallback to global mean
+        for col in self.cols_to_handle:
+            if col != "meteo_rain_height":  # Skip rain column for department-based filling
+                # Fill using department median
+                X[col] = X[col].fillna(
+                    X[self.department_col].map(self.department_medians[col])
+                )
+                # Fill remaining missing values using global mean
+                X[col] = X[col].fillna(self.global_means[col])
+
+        # Fill missing rain by average rain for the same month and department
+        if "meteo_rain_height" in self.cols_to_handle:
             X[self.date_col] = pd.to_datetime(X[self.date_col])
             X['month'] = X[self.date_col].dt.month
-            X = pd.merge(
-                X,
-                self.meteo_group_means,
-                how='left',
-                on=[self.department_col, 'month']
-            )
-            X[meteo] = X[meteo].fillna(X['mean_rain_height'])
 
-            X.drop(columns=['mean_rain_height', 'month'], inplace=True)
+            # Create a Series with aligned rain values
+            rain_fill_values = X.set_index([self.department_col, 'month']).index.map(self.rain_means_by_month_department)
 
-        # Handle all other columns (specified in cols_to_handle, excluding rain)
-        for col in self.cols_to_handle:
-            if col != meteo:
+            # Ensure the result is a Series with the same index as X
+            rain_fill_values = pd.Series(rain_fill_values, index=X.index)
 
-                X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
-                X[col] = X[col].fillna(
-                    X.groupby(self.department_col)[col].transform('median')
-                )
+            # Fill missing values in "meteo_rain_height"
+            X["meteo_rain_height"] = X["meteo_rain_height"].fillna(rain_fill_values)
 
-        print(f">> (Info) Valeurs Manquantes comblées avec les Médianes.")
-
+            X.drop(columns=['month'], inplace=True)  # Remove temporary column
         return X
 
 # Clean pizzo
@@ -422,42 +419,36 @@ class CleanPizo(Transformer):
         self.department_col = department_col
         self.cols_to_handle = cols_to_handle
         self.department_means = {}  # For storing department-level means for numerical columns
-        # For storing the most frequent values (modes) for categorical columns
-        self.column_modes = {}
+        self.global_means = {}  # For storing global means for numerical columns
+        self.column_modes = {}  # For storing the most frequent values (modes) for categorical columns
         self.one_hot_encoders = {}  # For storing one-hot encoders for categorical columns
 
     def fit(self, X, y=None):
         print(f">> (Info) Calculating means for numerical features and preparing for one-hot encoding.")
 
-        # Handle piezo_station_investigation_depth: Fill missing with mean of department
+        # Handle piezo_station_investigation_depth: Calculate means
         depth_col = "piezo_station_investigation_depth"
         if depth_col in self.cols_to_handle:
-            self.department_means[depth_col] = X.groupby(
-                self.department_col)[depth_col].mean()
+            # Calculate department-level means
+            self.department_means[depth_col] = X.groupby(self.department_col)[depth_col].mean()
+            # Calculate global mean as fallback
+            self.global_means[depth_col] = X[depth_col].mean()
 
         # Prepare for one-hot encoding and calculate modes for categorical columns
         for col in ['piezo_obtention_mode', 'piezo_status', 'piezo_qualification', 'piezo_measure_nature_code']:
             if col in self.cols_to_handle:
                 # Calculate the most frequent value (mode) for the column
-                # Store the most frequent value
                 self.column_modes[col] = X[col].mode()[0]
-                # Fill missing values for piezo_measure_nature_code with "I" during fitting
+
+                # Special handling for piezo_measure_nature_code
                 if col == 'piezo_measure_nature_code':
-                    # Ensure all values are strings
-                    X[col] = X[col].astype(str)
+                    X[col] = X[col].astype(str).fillna('0')
+                    X[col] = X[col].apply(lambda x: x if x in ['N', 'I', 'D', 'S'] else '0')
 
-                    # Fill missing values with '0'
-                    X[col] = X[col].fillna('0')
-
-                    # Replace values not in ['N', 'I', 'D', 'S'] with '0'
-                    X[col] = X[col].apply(lambda x: x if x in [
-                                          'N', 'I', 'D', 'S'] else '0')
-
-                self.one_hot_encoders[col] = pd.get_dummies(
-                    X[col], prefix=col, dtype=int).columns.tolist()
+                # Store one-hot encoded column names
+                self.one_hot_encoders[col] = pd.get_dummies(X[col], prefix=col, dtype=int).columns.tolist()
 
         print(f">> (Info) Fitting completed: Means, modes, and one-hot encoders prepared.")
-
         return self
 
     def transform(self, X):
@@ -466,12 +457,14 @@ class CleanPizo(Transformer):
         # Handle piezo_station_investigation_depth
         depth_col = "piezo_station_investigation_depth"
         if depth_col in self.cols_to_handle:
+            # Fill with department-level mean
             X[depth_col] = X[depth_col].fillna(
-                X.groupby(self.department_col)[
-                    depth_col].transform(lambda grp: grp.mean())
+                X[self.department_col].map(self.department_means[depth_col])
             )
-            print(
-                f">> (Info) Missing values in {depth_col} filled with department means.")
+            # Fill remaining missing values with global mean
+            X[depth_col] = X[depth_col].fillna(self.global_means[depth_col])
+            print(f">> (Info) Missing values in {depth_col} filled with department means or global mean as fallback.")
+
 
         # Handle categorical columns with one-hot encoding and missing value handling
         for col in ['piezo_obtention_mode', 'piezo_status', 'piezo_qualification', 'piezo_measure_nature_code']:
@@ -582,6 +575,8 @@ class CleanTemp(Transformer):
                 "meteo_temperature_min"
             ])
         )
+
+        X.drop(columns=['meteo_temperature_avg_threshold'], inplace=True, errors='ignore')
 
         return X
 
