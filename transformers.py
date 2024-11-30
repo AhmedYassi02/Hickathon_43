@@ -810,6 +810,12 @@ class CleanHydro(Transformer):
 
 
 class TimeTnx(Transformer):
+    '''
+    NEEDS : ["meteo_time_tn", "meteo_time_tx"]
+    INPUT : /
+    Input reduit : ?
+    RETURNS : ["meteo_time_tn", "meteo_time_tx"]
+    '''
 
     def __init__(
             self,
@@ -829,33 +835,35 @@ class TimeTnx(Transformer):
 
     def transform(self, X):
 
-        X_ = X.copy()
+        X[self.columns] = X[self.columns].applymap(self.convert_minute)
 
-        X_[self.columns] = X_[self.columns].applymap(self.convert_minute)
+        # def transform_row(row):
+        #     if row['delta'] < self.delta:
+        #         if row['meteo_time_tn'] <= 12*60 and row['meteo_time_tx'] <= 12*60:
+        #             row['meteo_time_tx'] = (row["meteo_time_tx"] + 12*60)%(24*60)
+        #         elif 12*60 <= row['meteo_time_tn'] and row['meteo_time_tx'] <= 24:
+        #             row['meteo_time_tn'] = (row["meteo_time_tn"] + 12*60)%(24*60)
+        #     return row
 
-        def transform_row(row):
-            if row['delta'] < self.delta:
-                if row['meteo_time_tn'] <= 12*60 and row['meteo_time_tx'] <= 12*60:
-                    row['meteo_time_tx'] = (row["meteo_time_tx"] + 12*60)%(24*60)
-                elif 12*60 <= row['meteo_time_tn'] and row['meteo_time_tx'] <= 24:
-                    row['meteo_time_tn'] = (row["meteo_time_tn"] + 12*60)%(24*60)
-            return row
+        # if self.clean:
+        #     delta_min_max = pd.DataFrame(abs(X_["meteo_time_tn"] - X_["meteo_time_tx"])%1440, columns=["delta"])
+        #     X_ = pd.concat([X_, delta_min_max], axis=1)
+        #     X_ = X_.apply(transform_row, axis=1)
+        #     X_ = X_.drop(columns="delta")
 
-        if self.clean:
-            delta_min_max = pd.DataFrame(abs(X_["meteo_time_tn"] - X_["meteo_time_tx"])%1440, columns=["delta"])
-            X_ = pd.concat([X_, delta_min_max], axis=1)
-            X_ = X_.apply(transform_row, axis=1)
-            X_ = X_.drop(columns="delta")
+        # X_error = X[(abs(X["meteo_time_tn"] - X["meteo_time_tx"])%1440 < 60*self.delta)]
 
-        X_error = X_[(abs(X_["meteo_time_tn"] - X_["meteo_time_tx"])%1440 < 60*self.delta)]
-        X_.iloc[X_error.index] = np.nan
+        # print(X_error.index.max())
 
-
-        X_["meteo_time_tn"] = X_["meteo_time_tn"].fillna(300)
-        X_["meteo_time_tx"] = X_["meteo_time_tx"].fillna(820)
+        # X.iloc[X_error.index] = np.nan
 
 
-        return X_
+        X[self.columns] = X[self.columns].fillna(self.mean)
+        print(f">> (Info - TimeTnx) fill na avec mean = {self.mean['meteo_time_tn']} & {self.mean['meteo_time_tx']}")
+
+
+
+        return X
     
     def convert_minute(self, x: int) -> int:
         if pd.isna(x):  # Vérifie si x est NaN
