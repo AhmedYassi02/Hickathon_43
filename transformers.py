@@ -292,8 +292,8 @@ class CleanLatLon(Transformer):
         X["meteo_latitude"] = temp
 
         if self.apply_threshold:
-            X.loc[X["distance_piezo_meteo"] > self.threshold, "distance_piezo_meteo"] = 0.0
-            X.loc[X["distance_piezo_meteo"] <= self.threshold, "distance_piezo_meteo"] = 1.0
+            X["near_meteo"] = (X["distance_piezo_meteo"] <= self.threshold).astype(float)
+            X["distance_piezo_meteo"] = X["near_meteo"]
 
         drop_cols = [
             "meteo_longitude",
@@ -306,6 +306,7 @@ class CleanLatLon(Transformer):
             "prelev_latitude_1",
             "prelev_longitude_2",
             "prelev_latitude_2",
+            "near_meteo"
         ]
         X.drop(columns=drop_cols, inplace=True)
 
