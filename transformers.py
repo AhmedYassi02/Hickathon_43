@@ -112,9 +112,6 @@ class AltitudeTrans(Transformer):
             (X[self.columns] <= self.max_altitude)
         ].mode()
 
-        print(f"most_frequent Altitude: {self.most_frequent}")
-        print(f"max altitude: {self.max_altitude}")
-
         return self
 
     def transform(self, X):
@@ -123,7 +120,7 @@ class AltitudeTrans(Transformer):
             # For high value, we cap to the max value of train
             X[col] = X[col].clip(upper=self.max_altitude[col])
             # Value < 0, we put the most frequent
-            X[col][X[col] < 0] = self.most_frequent[col]
+            X.loc[X[col] < 0, col] = self.most_frequent[col]
 
         return X
 
@@ -214,7 +211,7 @@ class CleanYael(Transformer):
 
 if __name__ == "__main__":
 
-    path_src_dataset = Path("./data/src/X_train_Hi5.csv.csv")
+    path_src_dataset = Path("./data/src/X_train_Hi5.csv")
 
     out_folder_dataset = Path("./data/cleaned")
     # Create the folder if it doesn't exist
@@ -238,9 +235,12 @@ if __name__ == "__main__":
     # Apply the transformers selected
     pipeline = Pipeline(steps=[
         ("DropNaRate", DropNaRate(0.7)),
-        ("CleanYael", CleanYael())
+        ("CleanYael", CleanYael()),
+        ("Altitude", AltitudeTrans(columns=["piezo_station_altitude", "meteo_altitude"])),
         # ... Add others transformations
     ])
 
+
+    print("Pipelin ongoing...")
     processed_X_train = pipeline.fit_transform(X_train)
     processed_X_val = pipeline.transform(X_val)
