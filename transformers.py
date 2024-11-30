@@ -76,7 +76,11 @@ class DateTransformer(Transformer):
         X = X.copy()
         for col in self.date_cols:
             if col == 'meteo_date':
-                X[col] = pd.to_datetime(X[col], errors='coerce').apply(lambda x: np.cos((float(x) * 2 * np.pi / 365.25)))
+                X[col] = pd.to_datetime(
+                    X[col], errors='coerce').astype(int).div(10**9)
+
+                X[col] = X[col].apply(
+                    lambda x: np.cos((x * 2 * np.pi / 365.25)))
             else:
                 X.drop(col, axis=1, inplace=True)
             X.rename(columns={'meteo_date': 'date'}, inplace=True)
@@ -162,8 +166,9 @@ class PartialStandardScaler(Transformer):
 
         X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
 
-        print(f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
-    
+        print(
+            f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
+
         return X
 
 ##### --------------- class yael --------------------------###
@@ -171,27 +176,25 @@ class PartialStandardScaler(Transformer):
 
 class CleanFeatures(Transformer):
     # prépare les features  "insee_%_agri" et "meteo_rain_height"
-    def __init__(self,cols):
+    def __init__(self, cols):
         # Initialize placeholders for the medians
         self.insee_median = None
         self.meteo_median = None
         self.cols = cols
 
         if "insee_%_agri" in self.cols:
-            self.handle_insee=True
-        else: 
-            self.handle_insee = False 
+            self.handle_insee = True
+        else:
+            self.handle_insee = False
         if "meteo_rain_height" in self.cols:
             self.handle_meteo = True
         else:
             self.handle_meteo = False
 
-
     def fit(self, X, y=None):
         # Column names to clean
         insee = "insee_%_agri"
         meteo = "meteo_rain_height"
-
 
         # Standardize the `insee_%_agri` column
         if self.handle_insee:
@@ -199,7 +202,8 @@ class CleanFeatures(Transformer):
             # Converts strings to NaN
             X[insee] = pd.to_numeric(X[insee], errors='coerce')
             X[insee] = X[insee].astype(float)  # Ensure column is float
-            print(f">> (Info) Column {insee} has been standardized to numeric.")
+            print(
+                f">> (Info) Column {insee} has been standardized to numeric.")
             self.insee_median = X[insee].median()
 
         # Compute and store the medians after standardizing
@@ -214,20 +218,20 @@ class CleanFeatures(Transformer):
         meteo = "meteo_rain_height"
 
         if self.handle_insee:
-                
+
             # Ensure the `insee_%_agri` column is standardized (in case it wasn't during fit)
             X[insee] = pd.to_numeric(X[insee], errors='coerce')
             X[insee] = X[insee].astype(float)
 
         # Fill missing values with the computed medians
             X[insee] = X[insee].fillna(self.insee_median)
-            
+
             print(
-            f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
-        
+                f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
+
         if self.handle_meteo:
             X[meteo] = X[meteo].fillna(self.meteo_median)
             print(
-            f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
+                f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
 
         return X
