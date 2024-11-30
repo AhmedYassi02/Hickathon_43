@@ -64,6 +64,13 @@ class DropNaRate(Transformer):
 
 
 class DateTransformer(Transformer):
+    '''
+    NEEDS : meteo_date
+    INPUT : / 
+    RETURNS : meteo_date (processed)
+    DROPS : All other dates
+    '''
+
     def __init__(self):
         self.date_cols = []
         self.time_cols = []
@@ -77,14 +84,11 @@ class DateTransformer(Transformer):
         X = X.copy()
         for col in self.date_cols:
             if col == 'meteo_date':
-                X['month'] = pd.to_datetime(
-                    X['meteo_date'], errors='coerce').dt.month
-
                 X[col] = pd.to_datetime(X[col], errors='coerce').dt.dayofyear.apply(
                     lambda x: np.cos((x - 1) * 2 * np.pi / 365.25))
             else:
                 X.drop(col, axis=1, inplace=True)
-            X.rename(columns={'meteo_date': 'date'}, inplace=True)
+            #X.rename(columns={'meteo_date': 'date'}, inplace=True)
 
         for col in self.time_cols:
             X[col] = X[col].apply(lambda x: np.cos(x * 2 * np.pi / 24))
@@ -101,7 +105,7 @@ class DropCols(Transformer):
 
     def transform(self, X):
 
-        X = X.drop(columns=self.columns)
+        X = X.drop(columns=self.columns,errors='ignore') #on ingore les erreurs
 
         print(f">> (INFO - DropCols) columns {self.columns} is/are droped.")
 
@@ -109,6 +113,15 @@ class DropCols(Transformer):
 
 
 class AltitudeTrans(Transformer):
+    '''
+    NEEDS : ["piezo_station_altitude", "meteo_altitude"]
+    INPUT : ["piezo_station_altitude", "meteo_altitude"]
+    RETURNS : ["piezo_station_altitude", "meteo_altitude"]
+    DROPS : None
+    
+    '''
+    
+
     def __init__(self, columns):
         self.columns = columns
         pass
@@ -138,8 +151,14 @@ class AltitudeTrans(Transformer):
 
 
 class PartialStandardScaler(Transformer):
-    """partial because only some columns can be selected for standardiation."""
+    '''partial because only some columns can be selected for standardiation
 
+    #NEEDS : /
+    # INPUT : numeric_cols 
+    # RETURNS : standardized numeric columns 
+    # DROPS : None
+    '''
+       
     def __init__(
         self,
         columns:  Union[list[str], str],
@@ -192,7 +211,15 @@ class PartialStandardScaler(Transformer):
 
 
 class CleanFeatures(Transformer):
-    # prépare les features  "insee_%_agri" et "meteo_rain_height"
+    ''' prépare les features  "insee_%_agri" et "meteo_rain_height"
+
+    NEEDS : ["insee_%_agri","meteo_rain_height"]
+    INPUT : ["insee_%_agri","meteo_rain_height"]
+    RETURNS : ["insee_%_agri","meteo_rain_height"] (cleaned)
+    DROPS : None
+
+    '''
+
     def __init__(self, cols):
         # Initialize placeholders for the medians
         self.insee_median = None
@@ -255,6 +282,15 @@ class CleanFeatures(Transformer):
 
 
 class TemperaturePressionTrans(Transformer):
+
+    '''
+    NEEDS : ['piezo_station_department_code', 'piezo_measurement_date']
+    INPUT : ['meteo_amplitude_tn_tx','meteo_temperature_avg','meteo_temperature_avg_threshold','meteo_temperature_min','meteo_temperature_min_50cm','meteo_temperature_min_ground','meteo_temperature_avg_tntm','meteo__pressure_saturation_avg','meteo_temperature_max']
+    Input reduit : ['meteo_temperature_avg','meteo_temperature_min','meteo__pressure_saturation_avg','meteo_temperature_max']
+    RETURNS : les colonnes de l'input, avec valeurs manquantes completées, et dropped la ou ya plus de 60% valeur manquantes
+    '''
+
+
     def __init__(self, columns: list[str]):
         self.columns = columns
         pass
@@ -262,26 +298,34 @@ class TemperaturePressionTrans(Transformer):
     def fit(self, X, y=None):
         return self
 
+    
     def transform(self, X):
-        # Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
+        #Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
+        
+        # Select only the specified columns
+        relevant_cols = [col for col in self.columns if col in X.columns]
+
+        # Calculate the threshold for missing values
         threshold = 0.6 * len(X)
-        cols_to_drop = X.columns[X.isna().sum() > threshold]
+
+        # Identify columns to drop within the relevant columns
+        cols_to_drop = [col for col in relevant_cols if X[col].isna().sum() > threshold]
+
+        # Drop the identified columns
         X = X.drop(columns=cols_to_drop)
 
-        # Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
-
+        #Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
+        
         for column in self.columns:
             if column in X.columns:
                 # Check if the column contains NaN values
                 if X[column].isna().sum() > 0:
                     # Fill NaN by department and date mean
-                    moyennes_departement_date = X.groupby(
-                        ['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
+                    moyennes_departement_date = X.groupby(['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
                     X[column] = X[column].fillna(moyennes_departement_date)
 
                     # Step 3: Fill any remaining NaN by the mean of the date (ignoring the department)
-                    moyennes_date = X.groupby('piezo_measurement_date')[
-                        column].transform('mean')
+                    moyennes_date = X.groupby('piezo_measurement_date')[column].transform('mean')
                     X[column] = X[column].fillna(moyennes_date)
 
         return X
@@ -292,6 +336,12 @@ class CleanLatLon(Transformer):
     Nettoyage des données relatives aux coordonnées géographiques
     - Inversion lat/lon pour les stations météos
     - Application d'un threshold (float -> boolean) pour la distance
+
+     NEEDS: ["distance_piezo_meteo",'piezo_station_longitude','piezo_station_latitude','meteo_latitude','meteo_longitude']
+    INPUT: /
+    RETURNS : 
+    DROPS: A lot (cf en bas du code)
+
     """
 
     def __init__(self, apply_threshold=True, dist_to_meteo_threshold=None):
@@ -327,7 +377,7 @@ class CleanLatLon(Transformer):
             "prelev_latitude_2",
             "near_meteo"
         ]
-        X.drop(columns=drop_cols, inplace=True)
+        X.drop(columns=drop_cols, inplace=True,errors='ignore') #errors=ignore pour qu'il n y ait pas d'erreurs is la colonne n'existe pas 
 
         return X
 
