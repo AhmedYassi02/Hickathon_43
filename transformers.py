@@ -813,12 +813,11 @@ class TimeTnx(Transformer):
 
     def __init__(
             self,
-            columns: list[str],
             delta: int=5,
-            clean: bool=True,
+            clean: bool=False,
         ):
 
-        self.columns = columns
+        self.columns = ["meteo_time_tn", "meteo_time_tx"]
         self.delta = delta
         self.clean = clean
 
