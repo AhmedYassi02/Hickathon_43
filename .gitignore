@@ -2,8 +2,17 @@
 data/
 .gitignore
 test_data.ipynb
+<<<<<<< HEAD
+<<<<<<< HEAD
+matteo*
+dash_yassine.py
+data_cleaning_location.ipynb
+=======
+=======
 =======
 /data/*
 1-exploration.ipynb
 >>>>>>> Stashed changes
+>>>>>>> 6e07031b3b75e271466cb8db6a6f2ed916242d11
 /yael nb persos
+>>>>>>> 2ec631984a70a7abe90c6d6aede4cd6c11d2e641
