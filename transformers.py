@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from pathlib import Path
 from sklearn.model_selection import train_test_split
+from typing import Union
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -141,7 +142,7 @@ class PartialStandardScaler(Transformer):
 
     def __init__(
         self,
-        columns: list[str] | str,
+        columns:  Union[list[str], str],
         *,
         copy: bool = True,
         with_mean: bool = True,
