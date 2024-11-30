@@ -9,6 +9,7 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from typing import Union
+from sklearn.preprocessing import OneHotEncoder
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -147,6 +148,68 @@ class AltitudeTrans(Transformer):
             X.loc[X[col] < 0, col] = self.most_frequent[col]
 
             X = X.fillna(self.mean[col])
+
+        return X
+
+
+class Prelev(Transformer):
+
+    def __init__(
+            self,
+            columns: list[str],
+            usage_label_max_categories: int,
+            mode_label_max_categories: int,
+            scale: int, # in [0, 1, 2]
+        ):
+        self.columns = columns
+        self.scale = scale
+
+        self.usage_oh_encoders: list[OneHotEncoder] = [
+            OneHotEncoder(
+                max_categories=usage_label_max_categories,
+            )
+            for i in range(self.scale)
+        ]
+
+        self.mode_oh_encoders: list[OneHotEncoder] = [
+            OneHotEncoder(
+                max_categories=mode_label_max_categories,
+            )
+            for i in range(self.scale)
+        ]
+
+    def fit(self, X, y=None):
+
+        for i in range(self.scale):
+            self.usage_oh_encoders[i].fit(pd.DataFrame(X[f"prelev_usage_label_{i}"]))
+            self.mode_oh_encoders[i].fit(pd.DataFrame(X[f"prelev_volume_obtention_mode_label_{i}"]))
+
+        self.mean = X[self.columns].mean(numeric_only=True)
+
+
+        return self
+
+    def transform(self, X):
+
+        for i in range(self.scale):
+            X[f"prelev_volume_{i}"] = X[f"prelev_volume_{i}"].fillna(self.mean[f"prelev_volume_{i}"])
+            X_usage = self.usage_oh_encoders[i].transform(pd.DataFrame(X[f"prelev_usage_label_{i}"])).toarray()
+            X_mode = self.mode_oh_encoders[i].transform(pd.DataFrame(X[f"prelev_volume_obtention_mode_label_{i}"])).toarray()
+
+            X_usage_df = pd.DataFrame(X_usage, columns=self.usage_oh_encoders[i].get_feature_names_out(), index=X.index)
+            X_mode_df = pd.DataFrame(X_mode, columns=self.mode_oh_encoders[i].get_feature_names_out(), index=X.index)
+
+            X = pd.concat([
+                X.drop(columns=[f"prelev_usage_label_{i}", f"prelev_volume_obtention_mode_label_{i}"]),
+                X_usage_df,
+                X_mode_df
+            ], axis=1)
+
+        for i in range(self.scale):
+            mean = self.mean[f"prelev_volume_{i}"]
+            print(f">> (Info - Prelev) 'prelev_volume_{i}' has been filledna with mean = {mean}")
+            print(f">> (Info - Prelev) 'prelev_usage_label_{i}' has been one-hot-encoded in {len(self.usage_oh_encoders[i].get_feature_names_out())} features")
+            print(f">> (Info - Prelev) 'prelev_volume_obtention_mode_label_{i}' has been one-hot-encoded in {len(self.mode_oh_encoders[i].get_feature_names_out())} features")
 
         return X
 
