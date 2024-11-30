@@ -134,16 +134,16 @@ class AltitudeTrans(Transformer):
 
 
 class PartialStandardScaler(Transformer):
-    """partial because only some columns can be selected for standardiation."""
+    """partial because only some columns can be selected for standardiation."""    
 
     def __init__(
-        self,
-        columns: list[str],
-        *,
-        copy: bool = True,
-        with_mean: bool = True,
-        with_std: bool = True
-    ):
+            self,
+            columns: list[str] | str,
+            *,
+            copy: bool = True,
+            with_mean: bool = True,
+            with_std: bool = True
+        ):
         self.columns = columns
         self.standardizer = StandardScaler(
             copy=copy,
@@ -151,23 +151,35 @@ class PartialStandardScaler(Transformer):
             with_std=with_std,
         )
 
+        self.copy = copy
+        self.with_mean = with_mean
+        self.with_std = with_std
+
     def fit(self, X, y=None):
+
+
+        if self.columns == "all":
+            self.columns = X.columns.to_list()
+
+        assert X.apply(lambda x: pd.api.types.is_numeric_dtype(x)).all(), "Some columns to standardize are not numerics"
 
         self.standardizer.fit(X[self.columns])
 
         return self
 
+
     def transform(self, X):
+        
+        assert X.apply(lambda x: pd.api.types.is_numeric_dtype(x)).all(), "Some columns to standardize are not numerics"
 
         X_standardized_np = self.standardizer.transform(X[self.columns])
 
-        X_standardized = pd.DataFrame(
-            X_standardized_np, columns=self.standardizer.get_feature_names_out())
+        X_standardized = pd.DataFrame(X_standardized_np, columns=self.standardizer.get_feature_names_out(), index=X.index)
 
         X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
 
-        print(
-            f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
+        print(f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
+
 
         return X
 
