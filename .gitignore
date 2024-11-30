@@ -1,4 +1,9 @@
+<<<<<<< Updated upstream
 data/
 .gitignore
 test_data.ipynb
+=======
+/data/*
+1-exploration.ipynb
+>>>>>>> Stashed changes
 /yael nb persos
