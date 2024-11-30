@@ -140,7 +140,6 @@ cont_cols = ['piezo_station_investigation_depth',
              'meteo_date',
              'meteo_rain_height',
              'meteo_temperature_avg',
-             'meteo_temperature_avg_threshold',
              'meteo__pressure_saturation_avg',
              'hydro_observation_result_elab',
              'hydro_status_code',
@@ -210,18 +209,15 @@ processed_X_val = processing_pipeline.transform(X_val)
 
 def objective(trial):
     params = {
-        "iterations": 200,
+        "iterations": 150,
         "learning_rate": trial.suggest_float("learning_rate", 0.05, 0.1, log=True),
         "depth": trial.suggest_int("depth", 4, 10),
-        "subsample": trial.suggest_float("subsample", 0.05, 1.0),
-        "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.05, 1.0),
         "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 1, 100),
-        'l2_leaf_reg': trial.suggest_loguniform("l2_leaf_reg", 1e-8, 100),
-        'border_count': trial.suggest_int("border_count", 1, 255),
-        'bagging_temperature': trial.suggest_float("bagging_temperature", 0.0, 100.0),
+        'loss_function': 'MultiClass',
     }
 
-    model = cb.CatBoostClassifier(**params)
+    model = cb.CatBoostClassifier(
+        **params, silent=True)
 
     model.fit(processed_X_train, y_train)
     predictions = model.predict(processed_X_val)
@@ -232,7 +228,7 @@ def objective(trial):
 if __name__ == "__main__":
     study = optuna.create_study(
         storage="sqlite:///db.sqlite3_gb",
-        study_name="RF_1",
+        study_name="CB_1",
         load_if_exists=True,
         direction="maximize"
     )
