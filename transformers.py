@@ -4,6 +4,8 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from pathlib import Path
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -35,6 +37,26 @@ class NewTransformer(Transformer):
     def transform(self, X):
 
         # TODO
+
+        return X
+
+
+class DropNaRate(Transformer):
+    def __init__(self, rate: float):
+        self.rate = rate
+
+    def fit(self, X, y=None):
+
+        perc_na = X.isna().sum()/X.shape[0]
+        self.cols_to_drop: pd.Series = perc_na[perc_na > self.rate].index
+
+        print(f">> (Info) Droped columns : {self.cols_to_drop.to_list()}")
+
+        return self
+
+    def transform(self, X):
+
+        X = X.drop(columns=self.cols_to_drop)
 
         return X
 
@@ -94,26 +116,28 @@ class AltitudeTrans(Transformer):
 
         return self
 
-    
     def transform(self, X):
-        
+
         for col in self.columns:
-            X[col] = X[col].clip(upper=self.max_altitude[col]) # For high value, we cap to the max value of train
-            X.loc[X[col] < 0, col] = self.most_frequent[col] # Value < 0, we put the most frequent
+            # For high value, we cap to the max value of train
+            X[col] = X[col].clip(upper=self.max_altitude[col])
+            # Value < 0, we put the most frequent
+            X[col][X[col] < 0] = self.most_frequent[col]
 
         return X
-    
+
+
 class PartialStandardScaler(Transformer):
-    """partial because only some columns can be selected for standardiation."""    
+    """partial because only some columns can be selected for standardiation."""
 
     def __init__(
-            self,
-            columns: list[str],
-            *,
-            copy: bool = True,
-            with_mean: bool = True,
-            with_std: bool = True
-        ):
+        self,
+        columns: list[str],
+        *,
+        copy: bool = True,
+        with_mean: bool = True,
+        with_std: bool = True
+    ):
         self.columns = columns
         self.standardizer = StandardScaler(
             copy=copy,
@@ -127,12 +151,12 @@ class PartialStandardScaler(Transformer):
 
         return self
 
-    
     def transform(self, X):
-        
+
         X_standardized_np = self.standardizer.transform(X[self.columns])
 
-        X_standardized = pd.DataFrame(X_standardized_np, columns=self.standardizer.get_feature_names_out())
+        X_standardized = pd.DataFrame(
+            X_standardized_np, columns=self.standardizer.get_feature_names_out())
 
         X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
 
@@ -141,8 +165,10 @@ class PartialStandardScaler(Transformer):
         return X
 
 ##### --------------- class yael --------------------------###
+
+
 class CleanYael(Transformer):
-    ## prépare les features  "insee_%_agri" et "meteo_rain_height"
+    # prépare les features  "insee_%_agri" et "meteo_rain_height"
     def __init__(self):
         # Initialize placeholders for the medians
         self.insee_median = None
@@ -154,7 +180,8 @@ class CleanYael(Transformer):
         meteo = "meteo_rain_height"
 
         # Standardize the `insee_%_agri` column
-        X[insee] = pd.to_numeric(X[insee], errors='coerce')  # Converts strings to NaN
+        # Converts strings to NaN
+        X[insee] = pd.to_numeric(X[insee], errors='coerce')
         X[insee] = X[insee].astype(float)  # Ensure column is float
         print(f">> (Info) Column {insee} has been standardized to numeric.")
 
@@ -176,7 +203,30 @@ class CleanYael(Transformer):
         X[insee] = X[insee].fillna(self.insee_median)
         X[meteo] = X[meteo].fillna(self.meteo_median)
 
-        print(f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
-        print(f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
+        print(
+            f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
+        print(
+            f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
 
         return X
+
+
+if __name__ == "__main__":
+
+    path_src_dataset = Path("./data/src/X_train_Hi5.csv.csv")
+
+    out_folder_dataset = Path("./data/cleaned")
+    # Create the folder if it doesn't exist
+    out_folder_dataset.mkdir(parents=True, exist_ok=True)
+
+    out_folder_config = Path("./data/cleaned/pipelines")
+    out_folder_config.mkdir(parents=True, exist_ok=True)
+
+    df = pd.read_csv(path_src_dataset)
+
+    # Apply the transformers selected
+    pipeline = Pipeline(steps=[
+        ("DropNaRate", DropNaRate(0.7)),
+        ("CleanYael", CleanYael())
+        # ... Add others transformations
+    ])

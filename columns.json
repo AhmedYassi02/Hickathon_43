@@ -1,14 +1,27 @@
 {
-    "drop" : ["piezo_station_department_name",
+    "drop" : 
+    ["piezo_station_department_name",
     "piezo_station_update_date",
     "piezo_station_commune_code_insee",
     "piezo_station_pe_label",
     "piezo_station_bdlisa_codes",
     "piezo_station_bss_code",
-    "piezo_station_bss_id",
+    "piezo_station_bss_id", 
     "piezo_bss_code",
     "piezo_measurement_date",
     "piezo_producer_name",
     "piezo_measure_nature_code",
-    "meteo_name"]
+    "meteo_name",
+    "hydro_station_code",
+    "hydro_method_code",
+    "hydro_method_label", // valeur constante
+    "hydro_qualification_label", // la même chose que hydro_qualification_code
+    "prelev_structure_code_0",
+    "prelev_structure_code_2",
+
+
+
+],
+"one_hot_encode" : ["prelev_usage_label_0",
+
 }
