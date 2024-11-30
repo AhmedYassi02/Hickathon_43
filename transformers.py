@@ -288,12 +288,12 @@ class CleanFeatures(Transformer):
 
     '''
 
-    def __init__(self, cols, department_col="piezo_station_department_code", date_col="meteo_date"):
+    def __init__(self, cols_to_handle, department_col="piezo_station_department_code", date_col="meteo_date"):
         # Initialize placeholders for the medians and additional parameters
         self.department_col = department_col
         self.date_col = date_col
         self.meteo_group_means = None
-        self.cols_to_handle = cols
+        self.cols_to_handle = cols_to_handle
         self.department_medians = {}
 
     def fit(self, X, y=None):
