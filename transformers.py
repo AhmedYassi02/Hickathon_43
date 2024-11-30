@@ -214,72 +214,89 @@ class PartialStandardScaler(Transformer):
 class CleanFeatures(Transformer):
     ''' prépare les features  "insee_%_agri" et "meteo_rain_height"
 
-    NEEDS : ["insee_%_agri","meteo_rain_height"]
-    INPUT : ["insee_%_agri","meteo_rain_height"]
-    RETURNS : ["insee_%_agri","meteo_rain_height"] (cleaned)
+    NEEDS : ["piezo_station_department_code", "meteo_date"]
+    INPUT : ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']
+    RETURNS : ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']] (cleaned)
     DROPS : None
+
+    Exemple d'appel :
+    cols = ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']
+    cleaner = CleanFeatures(cols)
 
     '''
 
-    def __init__(self, cols):
-        # Initialize placeholders for the medians
-        self.insee_median = None
-        self.meteo_median = None
-        self.cols = cols
-
-        if "insee_%_agri" in self.cols:
-            self.handle_insee = True
-        else:
-            self.handle_insee = False
-        if "meteo_rain_height" in self.cols:
-            self.handle_meteo = True
-        else:
-            self.handle_meteo = False
+    def __init__(self, cols, department_col="piezo_station_department_code", date_col="meteo_date"):
+        # Initialize placeholders for the medians and additional parameters
+        self.department_col = department_col
+        self.date_col = date_col
+        self.meteo_group_means = None
+        self.cols_to_handle = cols
+        self.department_medians = {}
 
     def fit(self, X, y=None):
-        # Column names to clean
-        insee = "insee_%_agri"
+        # Column names
         meteo = "meteo_rain_height"
 
-        # Standardize the `insee_%_agri` column
-        if self.handle_insee:
+        print(f">> (Info) Recuperations des moyennes des données INSEE par department")
+        
+        # Handle "meteo_rain_height"
+        if meteo in self.cols_to_handle:
+            
+            X[self.date_col] = pd.to_datetime(X[self.date_col])
+            X['month'] = X[self.date_col].dt.month
+            self.meteo_group_means = (
+                X.groupby([self.department_col, 'month'])[meteo]
+                .mean()
+                .reset_index()
+                .rename(columns={meteo: 'mean_rain_height'})
+            )
 
-            # Converts strings to NaN
-            X[insee] = pd.to_numeric(X[insee], errors='coerce')
-            X[insee] = X[insee].astype(float)  # Ensure column is float
-            print(
-                f">> (Info) Column {insee} has been standardized to numeric.")
-            self.insee_median = X[insee].median()
+        # Handle all other columns (specified in cols_to_handle, excluding rain)
+        for col in self.cols_to_handle:
+            if col != meteo:
 
-        # Compute and store the medians after standardizing
-        if self.handle_meteo:
-            self.meteo_median = X[meteo].median()
+                X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
+                self.department_medians[col] = (
+                    X.groupby(self.department_col)[col].median()
+                )
+        
+
+        print(f">> (Info) Infos medianes Insee recupérees")
 
         return self
 
     def transform(self, X):
         # Column names
-        insee = "insee_%_agri"
         meteo = "meteo_rain_height"
 
-        if self.handle_insee:
+        # Handle "meteo_rain_height"
+        if meteo in self.cols_to_handle:
+            
+            X[self.date_col] = pd.to_datetime(X[self.date_col])
+            X['month'] = X[self.date_col].dt.month
+            X = pd.merge(
+                X,
+                self.meteo_group_means,
+                how='left',
+                on=[self.department_col, 'month']
+            )
+            X[meteo] = X[meteo].fillna(X['mean_rain_height'])
+            
+            X.drop(columns=['mean_rain_height', 'month'], inplace=True)
 
-            # Ensure the `insee_%_agri` column is standardized (in case it wasn't during fit)
-            X[insee] = pd.to_numeric(X[insee], errors='coerce')
-            X[insee] = X[insee].astype(float)
-
-        # Fill missing values with the computed medians
-            X[insee] = X[insee].fillna(self.insee_median)
-
-            print(
-                f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
-
-        if self.handle_meteo:
-            X[meteo] = X[meteo].fillna(self.meteo_median)
-            print(
-                f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
-
+        # Handle all other columns (specified in cols_to_handle, excluding rain)
+        for col in self.cols_to_handle:
+            if col != meteo:
+                
+                X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
+                X[col] = X[col].fillna(
+                    X.groupby(self.department_col)[col].transform('median')
+                )
+        
+        print(f">> (Info) Valeurs Manquantes comblées avec les Médianes.")
+                
         return X
+    
 
 
 class CleanTemp(Transformer):
