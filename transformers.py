@@ -178,3 +178,51 @@ class CleanYael(Transformer):
         print(f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
 
         return X
+    
+
+
+
+###----------------- Matteo -----------------###
+
+class CleanLatLon(Transformer):
+    """
+    Nettoyage des données relatives aux coordonnées géographiques
+    - OK Inversion lat/lon pour les stations météos
+    - Application d'un threshold (float -> boolean) pour la distance
+    """
+    def __init__(self, apply_threshold=True, dist_to_meteo_threshold=None):
+        self.apply_threshold = apply_threshold
+        self.threshold = dist_to_meteo_threshold
+
+    def fit(self, X, y=None):
+        if self.apply_threshold and self.threshold is None:
+            self.threshold = X["distance_piezo_meteo"].quantile(0.95)
+        return self
+
+    
+    def transform(self, X):
+        X = X.copy()
+
+        temp = X["meteo_longitude"].copy()
+        X["meteo_longitude"] = X["meteo_latitude"].copy()
+        X["meteo_latitude"] = temp
+
+        if self.apply_threshold:
+            X.loc[X["distance_piezo_meteo"] > self.threshold, "distance_piezo_meteo"] = 0.0
+            X.loc[X["distance_piezo_meteo"] <= self.threshold, "distance_piezo_meteo"] = 1.0
+
+        drop_cols = [
+            "meteo_longitude",
+            "meteo_latitude",
+            "hydro_longitude",
+            "hydro_latitude",
+            "prelev_longitude_0",
+            "prelev_latitude_0",
+            "prelev_longitude_1",
+            "prelev_latitude_1",
+            "prelev_longitude_2",
+            "prelev_latitude_2",
+        ]
+        X.drop(columns=drop_cols, inplace=True)
+
+        return X
