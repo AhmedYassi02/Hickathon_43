@@ -7,6 +7,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from pathlib import Path
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from typing import Union
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -63,6 +65,13 @@ class DropNaRate(Transformer):
 
 
 class DateTransformer(Transformer):
+    '''
+    NEEDS : meteo_date
+    INPUT : / 
+    RETURNS : meteo_date (processed)
+    DROPS : All other dates
+    '''
+
     def __init__(self):
         self.date_cols = []
         self.time_cols = []
@@ -80,7 +89,7 @@ class DateTransformer(Transformer):
                     lambda x: np.cos((x - 1) * 2 * np.pi / 365.25))
             else:
                 X.drop(col, axis=1, inplace=True)
-            X.rename(columns={'meteo_date': 'date'}, inplace=True)
+            # X.rename(columns={'meteo_date': 'date'}, inplace=True)
 
         for col in self.time_cols:
             X[col] = X[col].apply(lambda x: np.cos(x * 2 * np.pi / 24))
@@ -97,7 +106,8 @@ class DropCols(Transformer):
 
     def transform(self, X):
 
-        X = X.drop(columns=self.columns)
+        # on ingore les erreurs
+        X = X.drop(columns=self.columns, errors='ignore')
 
         print(f">> (INFO - DropCols) columns {self.columns} is/are droped.")
 
@@ -105,6 +115,14 @@ class DropCols(Transformer):
 
 
 class AltitudeTrans(Transformer):
+    '''
+    NEEDS : ["piezo_station_altitude", "meteo_altitude"]
+    INPUT : ["piezo_station_altitude", "meteo_altitude"]
+    RETURNS : ["piezo_station_altitude", "meteo_altitude"]
+    DROPS : None
+
+    '''
+
     def __init__(self, columns):
         self.columns = columns
         pass
@@ -134,16 +152,22 @@ class AltitudeTrans(Transformer):
 
 
 class PartialStandardScaler(Transformer):
-    """partial because only some columns can be selected for standardiation."""    
+    '''partial because only some columns can be selected for standardiation
+
+    #NEEDS : /
+    # INPUT : numeric_cols 
+    # RETURNS : standardized numeric columns 
+    # DROPS : None
+    '''
 
     def __init__(
-            self,
-            columns: list[str] | str,
-            *,
-            copy: bool = True,
-            with_mean: bool = True,
-            with_std: bool = True
-        ):
+        self,
+        columns:  Union[list[str], str],
+        *,
+        copy: bool = True,
+        with_mean: bool = True,
+        with_std: bool = True
+    ):
         self.columns = columns
         self.standardizer = StandardScaler(
             copy=copy,
@@ -157,29 +181,30 @@ class PartialStandardScaler(Transformer):
 
     def fit(self, X, y=None):
 
-
         if self.columns == "all":
             self.columns = X.columns.to_list()
 
-        assert X.apply(lambda x: pd.api.types.is_numeric_dtype(x)).all(), "Some columns to standardize are not numerics"
+        assert X.apply(lambda x: pd.api.types.is_numeric_dtype(
+            x)).all(), "Some columns to standardize are not numerics"
 
         self.standardizer.fit(X[self.columns])
 
         return self
 
-
     def transform(self, X):
-        
-        assert X.apply(lambda x: pd.api.types.is_numeric_dtype(x)).all(), "Some columns to standardize are not numerics"
+
+        assert X.apply(lambda x: pd.api.types.is_numeric_dtype(
+            x)).all(), "Some columns to standardize are not numerics"
 
         X_standardized_np = self.standardizer.transform(X[self.columns])
 
-        X_standardized = pd.DataFrame(X_standardized_np, columns=self.standardizer.get_feature_names_out(), index=X.index)
+        X_standardized = pd.DataFrame(
+            X_standardized_np, columns=self.standardizer.get_feature_names_out(), index=X.index)
 
         X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
 
-        print(f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
-
+        print(
+            f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
 
         return X
 
@@ -187,68 +212,175 @@ class PartialStandardScaler(Transformer):
 
 
 class CleanFeatures(Transformer):
-    # prépare les features  "insee_%_agri" et "meteo_rain_height"
-    def __init__(self, cols):
-        # Initialize placeholders for the medians
-        self.insee_median = None
-        self.meteo_median = None
-        self.cols = cols
+    ''' prépare les features  "insee_%_agri" et "meteo_rain_height"
 
-        if "insee_%_agri" in self.cols:
-            self.handle_insee = True
-        else:
-            self.handle_insee = False
-        if "meteo_rain_height" in self.cols:
-            self.handle_meteo = True
-        else:
-            self.handle_meteo = False
+    NEEDS : ["piezo_station_department_code", "meteo_date"]
+    INPUT : ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']
+    RETURNS : ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']] (cleaned)
+    DROPS : None
+
+    Exemple d'appel :
+    cols = ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']
+    cleaner = CleanFeatures(cols)
+
+    '''
+
+    def __init__(self, cols, department_col="piezo_station_department_code", date_col="meteo_date"):
+        # Initialize placeholders for the medians and additional parameters
+        self.department_col = department_col
+        self.date_col = date_col
+        self.meteo_group_means = None
+        self.cols_to_handle = cols
+        self.department_medians = {}
 
     def fit(self, X, y=None):
-        # Column names to clean
-        insee = "insee_%_agri"
+        # Column names
         meteo = "meteo_rain_height"
 
-        # Standardize the `insee_%_agri` column
-        if self.handle_insee:
+        print(f">> (Info) Recuperations des moyennes des données INSEE par department")
+        
+        # Handle "meteo_rain_height"
+        if meteo in self.cols_to_handle:
+            
+            X[self.date_col] = pd.to_datetime(X[self.date_col])
+            X['month'] = X[self.date_col].dt.month
+            self.meteo_group_means = (
+                X.groupby([self.department_col, 'month'])[meteo]
+                .mean()
+                .reset_index()
+                .rename(columns={meteo: 'mean_rain_height'})
+            )
 
-            # Converts strings to NaN
-            X[insee] = pd.to_numeric(X[insee], errors='coerce')
-            X[insee] = X[insee].astype(float)  # Ensure column is float
-            print(
-                f">> (Info) Column {insee} has been standardized to numeric.")
-            self.insee_median = X[insee].median()
+        # Handle all other columns (specified in cols_to_handle, excluding rain)
+        for col in self.cols_to_handle:
+            if col != meteo:
 
-        # Compute and store the medians after standardizing
-        if self.handle_meteo:
-            self.meteo_median = X[meteo].median()
+                X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
+                self.department_medians[col] = (
+                    X.groupby(self.department_col)[col].median()
+                )
+        
+
+        print(f">> (Info) Infos medianes Insee recupérees")
 
         return self
 
     def transform(self, X):
         # Column names
-        insee = "insee_%_agri"
         meteo = "meteo_rain_height"
 
-        if self.handle_insee:
+        # Handle "meteo_rain_height"
+        if meteo in self.cols_to_handle:
+            
+            X[self.date_col] = pd.to_datetime(X[self.date_col])
+            X['month'] = X[self.date_col].dt.month
+            X = pd.merge(
+                X,
+                self.meteo_group_means,
+                how='left',
+                on=[self.department_col, 'month']
+            )
+            X[meteo] = X[meteo].fillna(X['mean_rain_height'])
+            
+            X.drop(columns=['mean_rain_height', 'month'], inplace=True)
 
-            # Ensure the `insee_%_agri` column is standardized (in case it wasn't during fit)
-            X[insee] = pd.to_numeric(X[insee], errors='coerce')
-            X[insee] = X[insee].astype(float)
+        # Handle all other columns (specified in cols_to_handle, excluding rain)
+        for col in self.cols_to_handle:
+            if col != meteo:
+                
+                X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
+                X[col] = X[col].fillna(
+                    X.groupby(self.department_col)[col].transform('median')
+                )
+        
+        print(f">> (Info) Valeurs Manquantes comblées avec les Médianes.")
+                
+        return X
+    
 
-        # Fill missing values with the computed medians
-            X[insee] = X[insee].fillna(self.insee_median)
 
-            print(
-                f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
+class CleanTemp(Transformer):
+    """
+    Nettoyage des données relatives aux températures
+    - Remplacement des valeurs manquantes de temp_avg en estimant à partir de temp_avg_threshold
+    - idem pour temp_min_ground, à partir de temp_min
+    - Au final, pour la température, on garde uniquement meteo_temperature_avg, meteo_temperature_min, meteo_temperature_max, meteo_temperature_min_ground
+    Mettre ce Transformer avant TemperaturePressionTrans
+    """
 
-        if self.handle_meteo:
-            X[meteo] = X[meteo].fillna(self.meteo_median)
-            print(
-                f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
+    def __init__(self):
+        return
+
+    def fit(self, X, y=None):
+        X = X.copy()
+
+        self.reglin_avg = LinearRegression().fit(
+            X=pd.DataFrame(X.loc[
+                X["meteo_temperature_avg_threshold"].notna(
+                ) & X["meteo_temperature_avg"].notna(),
+                "meteo_temperature_avg_threshold"
+            ]),
+            y=X.loc[
+                X["meteo_temperature_avg_threshold"].notna(
+                ) & X["meteo_temperature_avg"].notna(),
+                "meteo_temperature_avg"
+            ]
+        )
+
+        self.reglin_minground = LinearRegression().fit(
+            X=pd.DataFrame(X.loc[
+                X["meteo_temperature_min"].notna(
+                ) & X["meteo_temperature_min_ground"].notna(),
+                "meteo_temperature_min"
+            ]),
+            y=X.loc[
+                X["meteo_temperature_min"].notna(
+                ) & X["meteo_temperature_min_ground"].notna(),
+                "meteo_temperature_min_ground"
+            ]
+        )
+
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+
+        X.loc[
+            X["meteo_temperature_avg"].isna(
+            ) & X["meteo_temperature_avg_threshold"].notna(),
+            "meteo_temperature_avg"
+        ] = self.reglin_avg.predict(
+            X=pd.DataFrame(X.loc[
+                X["meteo_temperature_avg"].isna(
+                ) & X["meteo_temperature_avg_threshold"].notna(),
+                "meteo_temperature_avg_threshold"
+            ])
+        )
+
+        X.loc[
+            X["meteo_temperature_min_ground"].isna(
+            ) & X["meteo_temperature_min"].notna(),
+            "meteo_temperature_min_ground"
+        ] = self.reglin_minground.predict(
+            X=pd.DataFrame(X.loc[
+                X["meteo_temperature_min_ground"].isna(
+                ) & X["meteo_temperature_min"].notna(),
+                "meteo_temperature_min"
+            ])
+        )
 
         return X
 
+
 class TemperaturePressionTrans(Transformer):
+
+    '''
+    NEEDS : ['piezo_station_department_code', 'piezo_measurement_date']
+    INPUT : ['meteo_amplitude_tn_tx','meteo_temperature_avg','meteo_temperature_avg_threshold','meteo_temperature_min','meteo_temperature_min_50cm','meteo_temperature_min_ground','meteo_temperature_avg_tntm','meteo__pressure_saturation_avg','meteo_temperature_max']
+    Input reduit : ['meteo_temperature_avg','meteo_temperature_min','meteo__pressure_saturation_avg','meteo_temperature_max']
+    RETURNS : les colonnes de l'input, avec valeurs manquantes completées, et dropped la ou ya plus de 60% valeur manquantes
+    '''
+
     def __init__(self, columns: list[str]):
         self.columns = columns
         pass
@@ -256,36 +388,54 @@ class TemperaturePressionTrans(Transformer):
     def fit(self, X, y=None):
         return self
 
-    
     def transform(self, X):
-        #Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
+        # Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
+
+        # Select only the specified columns
+        relevant_cols = [col for col in self.columns if col in X.columns]
+
+        # Calculate the threshold for missing values
         threshold = 0.6 * len(X)
-        cols_to_drop = X.columns[X.isna().sum() > threshold]
+
+        # Identify columns to drop within the relevant columns
+        cols_to_drop = [
+            col for col in relevant_cols if X[col].isna().sum() > threshold]
+
+        # Drop the identified columns
         X = X.drop(columns=cols_to_drop)
 
-        #Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
-        
+        # Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
+
         for column in self.columns:
             if column in X.columns:
                 # Check if the column contains NaN values
                 if X[column].isna().sum() > 0:
                     # Fill NaN by department and date mean
-                    moyennes_departement_date = X.groupby(['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
+                    moyennes_departement_date = X.groupby(
+                        ['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
                     X[column] = X[column].fillna(moyennes_departement_date)
 
                     # Step 3: Fill any remaining NaN by the mean of the date (ignoring the department)
-                    moyennes_date = X.groupby('piezo_measurement_date')[column].transform('mean')
+                    moyennes_date = X.groupby('piezo_measurement_date')[
+                        column].transform('mean')
                     X[column] = X[column].fillna(moyennes_date)
 
         return X
-    
+
 
 class CleanLatLon(Transformer):
     """
     Nettoyage des données relatives aux coordonnées géographiques
     - Inversion lat/lon pour les stations météos
     - Application d'un threshold (float -> boolean) pour la distance
+
+     NEEDS: ["distance_piezo_meteo",'piezo_station_longitude','piezo_station_latitude','meteo_latitude','meteo_longitude']
+    INPUT: /
+    RETURNS : 
+    DROPS: A lot (cf en bas du code)
+
     """
+
     def __init__(self, apply_threshold=True, dist_to_meteo_threshold=None):
         self.apply_threshold = apply_threshold
         self.threshold = dist_to_meteo_threshold
@@ -295,7 +445,6 @@ class CleanLatLon(Transformer):
             self.threshold = X["distance_piezo_meteo"].quantile(0.95)
         return self
 
-    
     def transform(self, X):
         X = X.copy()
 
@@ -304,8 +453,9 @@ class CleanLatLon(Transformer):
         X["meteo_latitude"] = temp
 
         if self.apply_threshold:
-            X.loc[X["distance_piezo_meteo"] > self.threshold, "distance_piezo_meteo"] = 0.0
-            X.loc[X["distance_piezo_meteo"] <= self.threshold, "distance_piezo_meteo"] = 1.0
+            X["near_meteo"] = (X["distance_piezo_meteo"] <=
+                               self.threshold).astype(float)
+            X["distance_piezo_meteo"] = X["near_meteo"]
 
         drop_cols = [
             "meteo_longitude",
@@ -318,7 +468,44 @@ class CleanLatLon(Transformer):
             "prelev_latitude_1",
             "prelev_longitude_2",
             "prelev_latitude_2",
+            "near_meteo"
         ]
-        X.drop(columns=drop_cols, inplace=True)
+        # errors=ignore pour qu'il n y ait pas d'erreurs is la colonne n'existe pas
+        X.drop(columns=drop_cols, inplace=True, errors='ignore')
 
+        return X
+
+
+class MissingCat(Transformer):
+    """Créer une categorie 'missing' pour les valeurs manquantes car dans le data test il ya bcp de valeur manquante dans ces colonnes catégorielles
+    """
+
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        print(
+            f">> (INFO) missing categorie is added to columns {self.columns}")
+        return self
+
+    def transform(self, X):
+        X = (X.copy()
+             .fillna('missing', axis=1)
+             )
+        return X
+
+
+class DummyTransformer(Transformer):
+    """Transoformer les categories en valeurs entieres pour les colonnes catégorielles
+    """
+
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        print(f">> (INFO) columns {self.columns} are transformed to dummies")
+        return self
+
+    def transform(self, X):
+        X = pd.get_dummies(X, columns=self.columns)
         return X

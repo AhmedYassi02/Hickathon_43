@@ -1,5 +1,6 @@
 {
     "drop" : [
+        "row_indew",
         "piezo_station_department_name",
         "piezo_station_update_date",
         "piezo_station_commune_code_insee",
@@ -20,12 +21,14 @@
         "hydro_method_label", 
         "hydro_qualification_label", 
         "prelev_structure_code_0",
+        "prelev_structure_code_1",
         "prelev_structure_code_2",
-        "prelev_structure_code_0",
         "prelev_commune_code_insee_0",
+        "piezo_measure_nature_name",
+        "piezo_continuity_code",
+        "piezo_continuity_name", 
         
         "meteo_DRR", 
-        "meteo_temperature_min_ground", 
         "meteo_temperature_min_50cm", 
         "meteo_pressure_avg",
         "meteo_pression_maxi", 
@@ -61,7 +64,15 @@
         "meteo_snow_thickness_6h"
     ],
     "one_hot_encode" : [
+        "prelev_usage_label_0"
+    ],
+    "missing_cat" : [
         "prelev_usage_label_0",
-        "hydro_station_code"
+        "prelev_usage_label_1",
+        "prelev_usage_label_2",
+        "prelev_volume_obtention_mode_label_0",
+        "prelev_volume_obtention_mode_label_1",
+        "prelev_volume_obtention_mode_label_2"
+
     ]
 }

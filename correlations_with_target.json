@@ -1,0 +1,170 @@
+[
+    {
+        "column": "piezo_station_longitude",
+        "correlation_with_target": 0.10033456145286386
+    },
+    {
+        "column": "meteo_temperature_min",
+        "correlation_with_target": 0.09298121800588548
+    },
+    {
+        "column": "meteo__pressure_saturation_avg",
+        "correlation_with_target": 0.09229886646989162
+    },
+    {
+        "column": "meteo_temperature_avg",
+        "correlation_with_target": 0.08685419656928188
+    },
+    {
+        "column": "meteo_temperature_max",
+        "correlation_with_target": 0.08106689323742917
+    },
+    {
+        "column": "piezo_station_altitude",
+        "correlation_with_target": 0.06835743106731673
+    },
+    {
+        "column": "piezo_station_investigation_depth",
+        "correlation_with_target": 0.056037954208097034
+    },
+    {
+        "column": "meteo_temperature_min_ground",
+        "correlation_with_target": 0.054039399359442436
+    },
+    {
+        "column": "meteo_evapotranspiration_grid",
+        "correlation_with_target": 0.033020671184578756
+    },
+    {
+        "column": "distance_piezo_meteo",
+        "correlation_with_target": 0.026682087205506792
+    },
+    {
+        "column": "meteo_humidity_duration_below_40%",
+        "correlation_with_target": 0.02622400063419508
+    },
+    {
+        "column": "prelev_volume_0",
+        "correlation_with_target": 0.02617821917564828
+    },
+    {
+        "column": "meteo_time_humidity_min",
+        "correlation_with_target": 0.022673557863604487
+    },
+    {
+        "column": "meteo_time_tx",
+        "correlation_with_target": 0.022303233426165192
+    },
+    {
+        "column": "meteo_wind_speed_avg_10m",
+        "correlation_with_target": 0.022111491223484887
+    },
+    {
+        "column": "meteo_wind_max",
+        "correlation_with_target": 0.018077228669916214
+    },
+    {
+        "column": "meteo_wind_direction_max_avg",
+        "correlation_with_target": 0.01807372463679426
+    },
+    {
+        "column": "meteo_wind_max_3s",
+        "correlation_with_target": 0.01754104385782969
+    },
+    {
+        "column": "meteo_wind_avg",
+        "correlation_with_target": 0.017353438388146795
+    },
+    {
+        "column": "prelev_volume_1",
+        "correlation_with_target": 0.016539424438069217
+    },
+    {
+        "column": "meteo_frost_duration",
+        "correlation_with_target": 0.014860127563938034
+    },
+    {
+        "column": "meteo_rain_height",
+        "correlation_with_target": 0.014300745606419746
+    },
+    {
+        "column": "prelev_other_volume_sum",
+        "correlation_with_target": 0.012698654768603152
+    },
+    {
+        "column": "meteo_humidity_avg",
+        "correlation_with_target": 0.012528733746525607
+    },
+    {
+        "column": "prelev_volume_2",
+        "correlation_with_target": 0.01192363459237033
+    },
+    {
+        "column": "meteo_time_wind_max_2m",
+        "correlation_with_target": 0.011819963675203098
+    },
+    {
+        "column": "meteo_amplitude_tn_tx",
+        "correlation_with_target": 0.011152837780045123
+    },
+    {
+        "column": "meteo_id",
+        "correlation_with_target": 0.011104873958049604
+    },
+    {
+        "column": "meteo_humidity_max",
+        "correlation_with_target": 0.0111022843833716
+    },
+    {
+        "column": "meteo_wind_direction_max_inst",
+        "correlation_with_target": 0.010653971344805923
+    },
+    {
+        "column": "meteo_time_humidity_max",
+        "correlation_with_target": 0.009483954035003345
+    },
+    {
+        "column": "meteo_humidity_min",
+        "correlation_with_target": 0.008452843739374744
+    },
+    {
+        "column": "meteo_time_wind_max_3s",
+        "correlation_with_target": 0.0073846141048199586
+    },
+    {
+        "column": "meteo_time_wind_max",
+        "correlation_with_target": 0.006943153620756812
+    },
+    {
+        "column": "piezo_producer_code",
+        "correlation_with_target": 0.006220818748472063
+    },
+    {
+        "column": "meteo_time_wind_avg",
+        "correlation_with_target": 0.006009972096130988
+    },
+    {
+        "column": "insee_pop_commune",
+        "correlation_with_target": 0.005984263605141582
+    },
+    {
+        "column": "hydro_observation_result_elab",
+        "correlation_with_target": 0.00356288009713957
+    },
+    {
+        "column": "piezo_continuity_code",
+        "correlation_with_target": 0.0031227300406103183
+    },
+    {
+        "column": "meteo_humidity_duration_above_80%",
+        "correlation_with_target": 0.0021375827279832287
+    },
+    {
+        "column": "piezo_station_latitude",
+        "correlation_with_target": 0.0014829888162701714
+    },
+    {
+        "column": "meteo_time_tn",
+        "correlation_with_target": 0.0010319469638858194
+    }
+]
