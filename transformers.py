@@ -4,6 +4,8 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from pathlib import Path
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -206,3 +208,24 @@ class CleanYael(Transformer):
             f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
 
         return X
+
+
+if __name__ == "__main__":
+
+    path_src_dataset = Path("./data/src/X_train_Hi5.csv.csv")
+
+    out_folder_dataset = Path("./data/cleaned")
+    # Create the folder if it doesn't exist
+    out_folder_dataset.mkdir(parents=True, exist_ok=True)
+
+    out_folder_config = Path("./data/cleaned/pipelines")
+    out_folder_config.mkdir(parents=True, exist_ok=True)
+
+    df = pd.read_csv(path_src_dataset)
+
+    # Apply the transformers selected
+    pipeline = Pipeline(steps=[
+        ("DropNaRate", DropNaRate(0.7)),
+        ("CleanYael", CleanYael())
+        # ... Add others transformations
+    ])
