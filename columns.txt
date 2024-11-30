@@ -1,0 +1,39 @@
+{
+    "drop" : 
+    ["piezo_station_department_name",
+    "piezo_station_update_date",
+    "piezo_station_commune_code_insee",
+    "piezo_station_pe_label",
+    "piezo_station_bdlisa_codes",
+    "piezo_station_bss_code",
+    "piezo_station_bss_id",  // ou bien on enelebe lat/long
+    "piezo_bss_code",
+    "piezo_measurement_date",
+    "piezo_producer_name",
+    "piezo_measure_nature_code",
+    "meteo_name",
+    "meteo_id", // on garde une de ces 4 colonnes
+    "meteo_latitude",
+    "meteo_longitude",
+    "hydro_station_code",
+    "hydro_method_code", // valeur constante
+    "hydro_method_label", // valeur constante
+    "hydro_qualification_label", // la même chose que hydro_qualification_code
+    "prelev_structure_code_0",
+    "prelev_structure_code_2",
+    "prelev_structure_code_0",
+    "prelev_commune_code_insee_0" // ou bien garder ça et enlever prelev_commune_longitude_0 prelev_commune_latitude_0
+    
+
+
+
+],
+"one_hot_encode" : ["prelev_usage_label_0",
+"hydro_station_code", // on peut l'enlever aussi
+
+
+
+]
+
+
+}

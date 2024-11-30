@@ -116,6 +116,7 @@ class AltitudeTrans(Transformer):
             (X[self.columns] >= 0) &
             (X[self.columns] <= self.max_altitude)
         ].mode()
+        self.mean = X[self.columns].mean()
 
         return self
 
@@ -126,6 +127,8 @@ class AltitudeTrans(Transformer):
             X[col] = X[col].clip(upper=self.max_altitude[col])
             # Value < 0, we put the most frequent
             X.loc[X[col] < 0, col] = self.most_frequent[col]
+
+            X = X.fillna(self.mean[col])
 
         return X
 
