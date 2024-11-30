@@ -29,7 +29,6 @@
         "piezo_continuity_name", 
         
         "meteo_DRR", 
-        "meteo_temperature_min_ground", 
         "meteo_temperature_min_50cm", 
         "meteo_pressure_avg",
         "meteo_pression_maxi", 

@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from pathlib import Path
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
 from typing import Union
 
 
@@ -277,6 +278,71 @@ class CleanFeatures(Transformer):
             X[meteo] = X[meteo].fillna(self.meteo_median)
             print(
                 f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
+
+        return X
+    
+
+class CleanTemp(Transformer):
+    """
+    Nettoyage des données relatives aux températures
+    - Remplacement des valeurs manquantes de temp_avg en estimant à partir de temp_avg_threshold
+    - idem pour temp_min_ground, à partir de temp_min
+    - Au final, pour la température, on garde uniquement meteo_temperature_avg, meteo_temperature_min, meteo_temperature_max, meteo_temperature_min_ground
+    Mettre se Transformer avant TemperaturePressionTrans
+    """
+    def __init__(self):
+       return
+
+    def fit(self, X, y=None):
+        X = X.copy()
+
+        self.reglin_avg = LinearRegression().fit(
+            X=pd.DataFrame(X.loc[
+                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
+                "meteo_temperature_avg_threshold"
+            ]),
+            y=X.loc[
+                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
+                "meteo_temperature_avg"
+            ]
+        )
+
+        self.reglin_minground = LinearRegression().fit(
+            X=pd.DataFrame(X.loc[
+                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
+                "meteo_temperature_min"
+            ]),
+            y=X.loc[
+                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
+                "meteo_temperature_min_ground"
+            ]
+        )
+
+        return self
+
+    
+    def transform(self, X):
+        X = X.copy()
+
+        X.loc[
+            X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
+            "meteo_temperature_avg"
+        ] = self.reglin_avg.predict(
+            X=pd.DataFrame(X.loc[
+                X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
+                "meteo_temperature_avg_threshold"
+            ])
+        )
+
+        X.loc[
+            X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
+            "meteo_temperature_min_ground"
+        ] = self.reglin_minground.predict(
+            X=pd.DataFrame(X.loc[
+                X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
+                "meteo_temperature_min"
+            ])
+        )
 
         return X
 
