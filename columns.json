@@ -12,16 +12,24 @@
     "piezo_producer_name",
     "piezo_measure_nature_code",
     "meteo_name",
+    "meteo_id", 
+    "meteo_latitude",
+    "meteo_longitude",
     "hydro_station_code",
-    "hydro_method_code",
-    "hydro_method_label", // valeur constante
-    "hydro_qualification_label", // la même chose que hydro_qualification_code
+    "hydro_method_code", 
+    "hydro_method_label", 
+    "hydro_qualification_label", 
     "prelev_structure_code_0",
     "prelev_structure_code_2",
+    "prelev_structure_code_0",
+    "prelev_commune_code_insee_0" 
+    
 
 
 
 ],
 "one_hot_encode" : ["prelev_usage_label_0",
+"hydro_station_code"]
+
 
 }

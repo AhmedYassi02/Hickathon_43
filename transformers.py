@@ -70,6 +70,8 @@ class DateTransformer(Transformer):
     def fit(self, X, y=None):
         self.date_cols = [col for col in X.columns if 'date' in col]
         self.time_cols = [col for col in X.columns if 'time' in col]
+        print(f">> (INFO - DateTransformer) date columns: {self.date_cols}")
+        print(f">> (INFO - DateTransformer) time columns: {self.time_cols}")
         return self
 
     def transform(self, X):
@@ -83,7 +85,7 @@ class DateTransformer(Transformer):
             X.rename(columns={'meteo_date': 'date'}, inplace=True)
 
         for col in self.time_cols:
-            X[col] = X[col].apply(lambda x: np.cos(x * 2 * np.pi / 24))
+            X[col] = X[col].apply(lambda x: np.cos(x * 2 * np.pi / 2400.0))
         return X
 
 
@@ -163,8 +165,9 @@ class PartialStandardScaler(Transformer):
 
         X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
 
-        print(f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
-    
+        print(
+            f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
+
         return X
 
 ##### --------------- class yael --------------------------###
@@ -172,23 +175,21 @@ class PartialStandardScaler(Transformer):
 
 class CleanFeatures(Transformer):
     # prépare les features  "insee_%_agri" et "meteo_rain_height"
-    def __init__(self,cols):
+    def __init__(self, cols):
         # Initialize placeholders for the medians
         self.insee_median = None
         self.meteo_median = None
         self.cols = cols
 
         if "insee_%_agri" in self.cols:
-            self.handle_insee=True 
+            self.handle_insee = True
         if "meteo_rain_height" in self.cols:
             self.handle_meteo = True
-
 
     def fit(self, X, y=None):
         # Column names to clean
         insee = "insee_%_agri"
         meteo = "meteo_rain_height"
-
 
         # Standardize the `insee_%_agri` column
         if self.handle_insee:
@@ -196,7 +197,8 @@ class CleanFeatures(Transformer):
             # Converts strings to NaN
             X[insee] = pd.to_numeric(X[insee], errors='coerce')
             X[insee] = X[insee].astype(float)  # Ensure column is float
-            print(f">> (Info) Column {insee} has been standardized to numeric.")
+            print(
+                f">> (Info) Column {insee} has been standardized to numeric.")
             self.insee_median = X[insee].median()
 
         # Compute and store the medians after standardizing
@@ -211,21 +213,21 @@ class CleanFeatures(Transformer):
         meteo = "meteo_rain_height"
 
         if self.handle_insee:
-                
+
             # Ensure the `insee_%_agri` column is standardized (in case it wasn't during fit)
             X[insee] = pd.to_numeric(X[insee], errors='coerce')
             X[insee] = X[insee].astype(float)
 
         # Fill missing values with the computed medians
             X[insee] = X[insee].fillna(self.insee_median)
-            
+
             print(
-            f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
-        
+                f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
+
         if self.handle_meteo:
             X[meteo] = X[meteo].fillna(self.meteo_median)
             print(
-            f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
+                f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
 
         return X
 
@@ -233,6 +235,7 @@ class CleanFeatures(Transformer):
 if __name__ == "__main__":
 
     path_src_dataset = Path("./data/src/X_train_Hi5.csv")
+    path_json_columns = Path("./data/columns.json")
 
     out_folder_dataset = Path("./data/cleaned")
     # Create the folder if it doesn't exist
@@ -240,27 +243,31 @@ if __name__ == "__main__":
 
     out_folder_config = Path("./data/cleaned/pipelines")
     out_folder_config.mkdir(parents=True, exist_ok=True)
-
+    # read the list from the json file[drop]
+    cols_to_drop = pd.read_json(path_json_columns)["drop"].to_list()
     df = pd.read_csv(path_src_dataset)
 
     target = "piezo_groundwater_level_category"
 
     X = df.drop(columns=target)
 
-    mapping = {'Very Low': 0, 'Low': 1, 'Average': 2, 'High': 3, 'Very High': 4}
+    mapping = {'Very Low': 0, 'Low': 1,
+               'Average': 2, 'High': 3, 'Very High': 4}
     y = df[target].map(mapping)
 
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
-
+    X_train, X_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.2, random_state=42)
 
     # Apply the transformers selected
     pipeline = Pipeline(steps=[
+        ("DropCols", DropCols(cols_to_drop)),
+        ("DateTransformer", DateTransformer()),
         ("DropNaRate", DropNaRate(0.7)),
         ("CleanYael", CleanFeatures(['"insee_%_agri","meteo_rain_height"'])),
-        ("Altitude", AltitudeTrans(columns=["piezo_station_altitude", "meteo_altitude"])),
+        ("Altitude", AltitudeTrans(columns=[
+         "piezo_station_altitude", "meteo_altitude"])),
         # ... Add others transformations
     ])
-
 
     print("Pipelin ongoing...")
     processed_X_train = pipeline.fit_transform(X_train)
