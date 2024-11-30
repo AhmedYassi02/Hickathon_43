@@ -1,6 +1,10 @@
 data/
 .gitignore
 test_data.ipynb
+<<<<<<< HEAD
 matteo*
 dash_yassine.py
 data_cleaning_location.ipynb
+=======
+/yael nb persos
+>>>>>>> 2ec631984a70a7abe90c6d6aede4cd6c11d2e641
