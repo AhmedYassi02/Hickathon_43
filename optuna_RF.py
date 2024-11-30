@@ -141,6 +141,7 @@ cont_cols = ['piezo_station_investigation_depth',
              'meteo_date',
              'meteo_rain_height',
              'meteo_temperature_avg',
+             'meteo_temperature_avg_threshold',
              'meteo__pressure_saturation_avg',
              'hydro_observation_result_elab',
              'hydro_status_code',
@@ -200,7 +201,7 @@ processing_pipeline = Pipeline(steps=[
     ('CleanPizo',  CleanPizo(pizo_cols)),
     ('Dates', DateTransformer()),
     ('DropCols', DropCols(columns_to_drop)),
-    ('scaler', PartialStandardScaler(columns=cont_cols)),
+    ('scaler', PartialStandardScaler(columns=cont_cols))
 ])
 
 
@@ -210,15 +211,11 @@ processed_X_val = processing_pipeline.transform(X_val)
 
 def objective(trial):
     params = {
-        "n_estimators": trial.suggest_int("n_estimators_gb", 50, 200),
-        "learning_rate": trial.suggest_float("learning_rate_gb", 1e-3, 0.1, log=True),
+        "n_estimators": trial.suggest_int("n_estimators_gb", 50, 300),
         "max_depth": trial.suggest_int("max_depth_gb", 2, 5),
-        "objective": "multi:softmax",
-        "device": "gpu",
     }
 
-    model = XGBClassifier(**params,
-                          categorical_feature=categorical_var)
+    model = RandomForestClassifier(**params)
 
     model.fit(processed_X_train, y_train)
     predictions = model.predict(processed_X_val)
@@ -229,7 +226,7 @@ def objective(trial):
 if __name__ == "__main__":
     study = optuna.create_study(
         storage="sqlite:///db.sqlite3_gb",
-        study_name="XGB_1",
+        study_name="RF_1",
         load_if_exists=True,
         direction="maximize"
     )
