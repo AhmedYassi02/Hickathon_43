@@ -6,6 +6,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from pathlib import Path
+from sklearn.model_selection import train_test_split
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -116,9 +117,6 @@ class AltitudeTrans(Transformer):
             (X[self.columns] <= self.max_altitude)
         ].mode()
 
-        print(f"most_frequent Altitude: {self.most_frequent}")
-        print(f"max altitude: {self.max_altitude}")
-
         return self
 
     def transform(self, X):
@@ -127,7 +125,7 @@ class AltitudeTrans(Transformer):
             # For high value, we cap to the max value of train
             X[col] = X[col].clip(upper=self.max_altitude[col])
             # Value < 0, we put the most frequent
-            X[col][X[col] < 0] = self.most_frequent[col]
+            X.loc[X[col] < 0, col] = self.most_frequent[col]
 
         return X
 
@@ -165,33 +163,46 @@ class PartialStandardScaler(Transformer):
 
         X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
 
-        print(
-            f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
+        print(f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
+    
+        return X
 
 ##### --------------- class yael --------------------------###
 
 
-class CleanYael(Transformer):
+class CleanFeatures(Transformer):
     # prépare les features  "insee_%_agri" et "meteo_rain_height"
-    def __init__(self):
+    def __init__(self,cols):
         # Initialize placeholders for the medians
         self.insee_median = None
         self.meteo_median = None
+        self.cols = cols
+
+        if "insee_%_agri" in self.cols:
+            self.handle_insee=True 
+        if "meteo_rain_height" in self.cols:
+            self.handle_meteo = True
+
 
     def fit(self, X, y=None):
         # Column names to clean
         insee = "insee_%_agri"
         meteo = "meteo_rain_height"
 
+
         # Standardize the `insee_%_agri` column
-        # Converts strings to NaN
-        X[insee] = pd.to_numeric(X[insee], errors='coerce')
-        X[insee] = X[insee].astype(float)  # Ensure column is float
-        print(f">> (Info) Column {insee} has been standardized to numeric.")
+        if self.handle_insee:
+
+            # Converts strings to NaN
+            X[insee] = pd.to_numeric(X[insee], errors='coerce')
+            X[insee] = X[insee].astype(float)  # Ensure column is float
+            print(f">> (Info) Column {insee} has been standardized to numeric.")
+            self.insee_median = X[insee].median()
 
         # Compute and store the medians after standardizing
-        self.insee_median = X[insee].median()
-        self.meteo_median = X[meteo].median()
+        if self.handle_meteo:
+            self.meteo_median = X[meteo].median()
+
         return self
 
     def transform(self, X):
@@ -199,17 +210,21 @@ class CleanYael(Transformer):
         insee = "insee_%_agri"
         meteo = "meteo_rain_height"
 
-        # Ensure the `insee_%_agri` column is standardized (in case it wasn't during fit)
-        X[insee] = pd.to_numeric(X[insee], errors='coerce')
-        X[insee] = X[insee].astype(float)
+        if self.handle_insee:
+                
+            # Ensure the `insee_%_agri` column is standardized (in case it wasn't during fit)
+            X[insee] = pd.to_numeric(X[insee], errors='coerce')
+            X[insee] = X[insee].astype(float)
 
         # Fill missing values with the computed medians
-        X[insee] = X[insee].fillna(self.insee_median)
-        X[meteo] = X[meteo].fillna(self.meteo_median)
-
-        print(
+            X[insee] = X[insee].fillna(self.insee_median)
+            
+            print(
             f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
-        print(
+        
+        if self.handle_meteo:
+            X[meteo] = X[meteo].fillna(self.meteo_median)
+            print(
             f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
 
         return X
@@ -217,7 +232,7 @@ class CleanYael(Transformer):
 
 if __name__ == "__main__":
 
-    path_src_dataset = Path("./data/src/X_train_Hi5.csv.csv")
+    path_src_dataset = Path("./data/src/X_train_Hi5.csv")
 
     out_folder_dataset = Path("./data/cleaned")
     # Create the folder if it doesn't exist
@@ -228,9 +243,25 @@ if __name__ == "__main__":
 
     df = pd.read_csv(path_src_dataset)
 
+    target = "piezo_groundwater_level_category"
+
+    X = df.drop(columns=target)
+
+    mapping = {'Very Low': 0, 'Low': 1, 'Average': 2, 'High': 3, 'Very High': 4}
+    y = df[target].map(mapping)
+
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+
     # Apply the transformers selected
     pipeline = Pipeline(steps=[
         ("DropNaRate", DropNaRate(0.7)),
-        ("CleanYael", CleanYael())
+        ("CleanYael", CleanFeatures(['"insee_%_agri","meteo_rain_height"'])),
+        ("Altitude", AltitudeTrans(columns=["piezo_station_altitude", "meteo_altitude"])),
         # ... Add others transformations
     ])
+
+
+    print("Pipelin ongoing...")
+    processed_X_train = pipeline.fit_transform(X_train)
+    processed_X_val = pipeline.transform(X_val)
