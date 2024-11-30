@@ -155,12 +155,12 @@ class AltitudeTrans(Transformer):
 class Prelev(Transformer):
 
     def __init__(
-            self,
-            columns: list[str],
-            usage_label_max_categories: int,
-            mode_label_max_categories: int,
-            scale: int, # in [0, 1, 2]
-        ):
+        self,
+        columns: list[str],
+        usage_label_max_categories: int,
+        mode_label_max_categories: int,
+        scale: int,  # in [0, 1, 2]
+    ):
         self.columns = columns
         self.scale = scale
 
@@ -181,35 +181,45 @@ class Prelev(Transformer):
     def fit(self, X, y=None):
 
         for i in range(self.scale):
-            self.usage_oh_encoders[i].fit(pd.DataFrame(X[f"prelev_usage_label_{i}"]))
-            self.mode_oh_encoders[i].fit(pd.DataFrame(X[f"prelev_volume_obtention_mode_label_{i}"]))
+            self.usage_oh_encoders[i].fit(
+                pd.DataFrame(X[f"prelev_usage_label_{i}"]))
+            self.mode_oh_encoders[i].fit(pd.DataFrame(
+                X[f"prelev_volume_obtention_mode_label_{i}"]))
 
         self.mean = X[self.columns].mean(numeric_only=True)
-
 
         return self
 
     def transform(self, X):
 
         for i in range(self.scale):
-            X[f"prelev_volume_{i}"] = X[f"prelev_volume_{i}"].fillna(self.mean[f"prelev_volume_{i}"])
-            X_usage = self.usage_oh_encoders[i].transform(pd.DataFrame(X[f"prelev_usage_label_{i}"])).toarray()
-            X_mode = self.mode_oh_encoders[i].transform(pd.DataFrame(X[f"prelev_volume_obtention_mode_label_{i}"])).toarray()
+            X[f"prelev_volume_{i}"] = X[f"prelev_volume_{i}"].fillna(
+                self.mean[f"prelev_volume_{i}"])
+            X_usage = self.usage_oh_encoders[i].transform(
+                pd.DataFrame(X[f"prelev_usage_label_{i}"])).toarray()
+            X_mode = self.mode_oh_encoders[i].transform(pd.DataFrame(
+                X[f"prelev_volume_obtention_mode_label_{i}"])).toarray()
 
-            X_usage_df = pd.DataFrame(X_usage, columns=self.usage_oh_encoders[i].get_feature_names_out(), index=X.index)
-            X_mode_df = pd.DataFrame(X_mode, columns=self.mode_oh_encoders[i].get_feature_names_out(), index=X.index)
+            X_usage_df = pd.DataFrame(
+                X_usage, columns=self.usage_oh_encoders[i].get_feature_names_out(), index=X.index)
+            X_mode_df = pd.DataFrame(
+                X_mode, columns=self.mode_oh_encoders[i].get_feature_names_out(), index=X.index)
 
             X = pd.concat([
-                X.drop(columns=[f"prelev_usage_label_{i}", f"prelev_volume_obtention_mode_label_{i}"]),
+                X.drop(
+                    columns=[f"prelev_usage_label_{i}", f"prelev_volume_obtention_mode_label_{i}"]),
                 X_usage_df,
                 X_mode_df
             ], axis=1)
 
         for i in range(self.scale):
             mean = self.mean[f"prelev_volume_{i}"]
-            print(f">> (Info - Prelev) 'prelev_volume_{i}' has been filledna with mean = {mean}")
-            print(f">> (Info - Prelev) 'prelev_usage_label_{i}' has been one-hot-encoded in {len(self.usage_oh_encoders[i].get_feature_names_out())} features")
-            print(f">> (Info - Prelev) 'prelev_volume_obtention_mode_label_{i}' has been one-hot-encoded in {len(self.mode_oh_encoders[i].get_feature_names_out())} features")
+            print(
+                f">> (Info - Prelev) 'prelev_volume_{i}' has been filledna with mean = {mean}")
+            print(
+                f">> (Info - Prelev) 'prelev_usage_label_{i}' has been one-hot-encoded in {len(self.usage_oh_encoders[i].get_feature_names_out())} features")
+            print(
+                f">> (Info - Prelev) 'prelev_volume_obtention_mode_label_{i}' has been one-hot-encoded in {len(self.mode_oh_encoders[i].get_feature_names_out())} features")
 
         return X
 
@@ -503,7 +513,8 @@ class CleanLatLon(Transformer):
 
     def fit(self, X, y=None):
         if self.apply_threshold and self.dist_to_meteo_threshold is None:
-            self.dist_to_meteo_threshold = X["distance_piezo_meteo"].quantile(0.95)
+            self.dist_to_meteo_threshold = X["distance_piezo_meteo"].quantile(
+                0.95)
         return self
 
     def transform(self, X):
@@ -514,7 +525,8 @@ class CleanLatLon(Transformer):
         X["meteo_latitude"] = temp
 
         if self.apply_threshold:
-            X["near_meteo"] = (X["distance_piezo_meteo"] <= self.dist_to_meteo_threshold).astype(float)
+            X["near_meteo"] = (X["distance_piezo_meteo"] <=
+                               self.dist_to_meteo_threshold).astype(float)
             X["distance_piezo_meteo"] = X["near_meteo"]
 
         drop_cols = [
@@ -538,6 +550,7 @@ class CleanLatLon(Transformer):
 
 class MissingCat(Transformer):
     """Créer une categorie 'missing' pour les valeurs manquantes car dans le data test il ya bcp de valeur manquante dans ces colonnes catégorielles
+
     """
 
     def __init__(self, columns):
@@ -573,13 +586,19 @@ class DummyTransformer(Transformer):
 
 class PrelevVol(Transformer):
     """Remplir les valeur manquantes des colonnes prelevement volume par la minimum de la colonne par commune de cette 
+
+    NEEDS: ['piezo_station_commune_name', 'prelev_volume_0', 'prelev_volume_1', 'prelev_volume_2', 'prelev_other_volume_sum']
+    INPUT : /
+    RETURNS :
+    DROP : piezo_station_commune_name
     """
 
-    def __init__(self, columns):
+    def __init__(self):
         self.columns = ['prelev_volume_0', 'prelev_volume_1',
                         'prelev_volume_2', 'prelev_other_volume_sum']
 
     def fit(self, X, y=None):
+        print(X.columns)
         self.min_vol = X.groupby('piezo_station_commune_name')[
             self.columns].min()
         print(
@@ -590,29 +609,9 @@ class PrelevVol(Transformer):
         for col in self.columns:
             X[col] = X[col].fillna(
                 X['piezo_station_commune_name'].map(self.min_vol[col]))
+        X.drop(columns=['piezo_station_commune_name'], inplace=True)
         return X
 
-
-class PrelevVol(Transformer):
-    """Remplir les valeur manquantes des colonnes prelevement volume par la minimum de la colonne par commune de cette 
-    """
-
-    def __init__(self, columns):
-        self.columns = ['prelev_volume_0', 'prelev_volume_1',
-                        'prelev_volume_2', 'prelev_other_volume_sum']
-
-    def fit(self, X, y=None):
-        self.min_vol = X.groupby('piezo_station_commune_name')[
-            self.columns].min()
-        print(
-            f">> (INFO) missing values in columns {self.columns} are filled by the minimum of the column by commune")
-        return self
-
-    def transform(self, X):
-        for col in self.columns:
-            X[col] = X[col].fillna(
-                X['piezo_station_commune_name'].map(self.min_vol[col]))
-        return X
 
 class CleanHydro(Transformer):
     """
@@ -624,23 +623,27 @@ class CleanHydro(Transformer):
     INPUTS: /
     RETURNS: ["hydro_observation_result_elab", "hydro_observation_log", "hydro_status_code", "hydro_qualification_code", "hydro_hydro_quantity_elab"]
     """
+
     def __init__(self):
-       return
+        return
 
     def fit(self, X, y=None):
-        self.mean_without_outliers = X.loc[X["hydro_observation_result_elab"]<1e8, "hydro_observation_result_elab"].mean()
+        self.mean_without_outliers = X.loc[X["hydro_observation_result_elab"]
+                                           < 1e8, "hydro_observation_result_elab"].mean()
         return self
 
-    
     def transform(self, X):
         X = X.copy()
 
-        X.loc[X["hydro_observation_result_elab"]>1e8, "hydro_observation_result_elab"] = self.mean_without_outliers
+        X.loc[X["hydro_observation_result_elab"] > 1e8,
+              "hydro_observation_result_elab"] = self.mean_without_outliers
 
-        X.loc[X["hydro_observation_result_elab"]<0, "hydro_observation_result_elab"] = 0
+        X.loc[X["hydro_observation_result_elab"] <
+              0, "hydro_observation_result_elab"] = 0
         X["hydro_observation_result_elab"] = X["hydro_observation_result_elab"]+1
 
-        X["hydro_observation_log"] = X["hydro_observation_result_elab"].apply(np.log)
+        X["hydro_observation_log"] = X["hydro_observation_result_elab"].apply(
+            np.log)
 
         hydro_cols_to_drop = [
             "hydro_station_code",
