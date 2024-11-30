@@ -1,14 +1,18 @@
-
+### Communs ###
 data/
 .gitignore
+/data/*
+
+### Yassine ###
 test_data.ipynb
+
+### Matteo ###
 matteo*
 dash_yassine.py
 data_cleaning_location.ipynb
-=======
-=======
-=======
-/data/*
+data_cleaning_meteo.ipynb
+
+### Yael ###
 1-exploration.ipynb
-*.pyc
+
 
