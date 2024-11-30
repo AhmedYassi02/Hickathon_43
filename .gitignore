@@ -6,8 +6,7 @@ data/
 ### Yassine ###
 test_data.ipynb
 *.pyc
-optuna_model.py
-r
+db.*
 ### Matteo ###
 matteo*
 dash_yassine.py
