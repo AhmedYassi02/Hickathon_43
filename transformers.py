@@ -9,6 +9,7 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from typing import Union
+from sklearn.preprocessing import OneHotEncoder
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -89,7 +90,7 @@ class DateTransformer(Transformer):
                     lambda x: np.cos((x - 1) * 2 * np.pi / 365.25))
             else:
                 X.drop(col, axis=1, inplace=True)
-            #X.rename(columns={'meteo_date': 'date'}, inplace=True)
+            # X.rename(columns={'meteo_date': 'date'}, inplace=True)
 
         for col in self.time_cols:
             X[col] = X[col].apply(lambda x: np.cos(x * 2 * np.pi / 24))
@@ -106,7 +107,8 @@ class DropCols(Transformer):
 
     def transform(self, X):
 
-        X = X.drop(columns=self.columns,errors='ignore') #on ingore les erreurs
+        # on ingore les erreurs
+        X = X.drop(columns=self.columns, errors='ignore')
 
         print(f">> (INFO - DropCols) columns {self.columns} is/are droped.")
 
@@ -119,9 +121,8 @@ class AltitudeTrans(Transformer):
     INPUT : ["piezo_station_altitude", "meteo_altitude"]
     RETURNS : ["piezo_station_altitude", "meteo_altitude"]
     DROPS : None
-    
+
     '''
-    
 
     def __init__(self, columns):
         self.columns = columns
@@ -151,6 +152,68 @@ class AltitudeTrans(Transformer):
         return X
 
 
+class Prelev(Transformer):
+
+    def __init__(
+            self,
+            columns: list[str],
+            usage_label_max_categories: int,
+            mode_label_max_categories: int,
+            scale: int, # in [0, 1, 2]
+        ):
+        self.columns = columns
+        self.scale = scale
+
+        self.usage_oh_encoders: list[OneHotEncoder] = [
+            OneHotEncoder(
+                max_categories=usage_label_max_categories,
+            )
+            for i in range(self.scale)
+        ]
+
+        self.mode_oh_encoders: list[OneHotEncoder] = [
+            OneHotEncoder(
+                max_categories=mode_label_max_categories,
+            )
+            for i in range(self.scale)
+        ]
+
+    def fit(self, X, y=None):
+
+        for i in range(self.scale):
+            self.usage_oh_encoders[i].fit(pd.DataFrame(X[f"prelev_usage_label_{i}"]))
+            self.mode_oh_encoders[i].fit(pd.DataFrame(X[f"prelev_volume_obtention_mode_label_{i}"]))
+
+        self.mean = X[self.columns].mean(numeric_only=True)
+
+
+        return self
+
+    def transform(self, X):
+
+        for i in range(self.scale):
+            X[f"prelev_volume_{i}"] = X[f"prelev_volume_{i}"].fillna(self.mean[f"prelev_volume_{i}"])
+            X_usage = self.usage_oh_encoders[i].transform(pd.DataFrame(X[f"prelev_usage_label_{i}"])).toarray()
+            X_mode = self.mode_oh_encoders[i].transform(pd.DataFrame(X[f"prelev_volume_obtention_mode_label_{i}"])).toarray()
+
+            X_usage_df = pd.DataFrame(X_usage, columns=self.usage_oh_encoders[i].get_feature_names_out(), index=X.index)
+            X_mode_df = pd.DataFrame(X_mode, columns=self.mode_oh_encoders[i].get_feature_names_out(), index=X.index)
+
+            X = pd.concat([
+                X.drop(columns=[f"prelev_usage_label_{i}", f"prelev_volume_obtention_mode_label_{i}"]),
+                X_usage_df,
+                X_mode_df
+            ], axis=1)
+
+        for i in range(self.scale):
+            mean = self.mean[f"prelev_volume_{i}"]
+            print(f">> (Info - Prelev) 'prelev_volume_{i}' has been filledna with mean = {mean}")
+            print(f">> (Info - Prelev) 'prelev_usage_label_{i}' has been one-hot-encoded in {len(self.usage_oh_encoders[i].get_feature_names_out())} features")
+            print(f">> (Info - Prelev) 'prelev_volume_obtention_mode_label_{i}' has been one-hot-encoded in {len(self.mode_oh_encoders[i].get_feature_names_out())} features")
+
+        return X
+
+
 class PartialStandardScaler(Transformer):
     '''partial because only some columns can be selected for standardiation
 
@@ -159,7 +222,7 @@ class PartialStandardScaler(Transformer):
     # RETURNS : standardized numeric columns 
     # DROPS : None
     '''
-       
+
     def __init__(
         self,
         columns:  Union[list[str], str],
@@ -214,73 +277,88 @@ class PartialStandardScaler(Transformer):
 class CleanFeatures(Transformer):
     ''' prépare les features  "insee_%_agri" et "meteo_rain_height"
 
-    NEEDS : ["insee_%_agri","meteo_rain_height"]
-    INPUT : ["insee_%_agri","meteo_rain_height"]
-    RETURNS : ["insee_%_agri","meteo_rain_height"] (cleaned)
+    NEEDS : ["piezo_station_department_code", "meteo_date"]
+    INPUT : ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']
+    RETURNS : ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']] (cleaned)
     DROPS : None
+
+    Exemple d'appel :
+    cols = ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune', 'insee_med_living_level', 'insee_%_ind', 'insee_%_const']
+    cleaner = CleanFeatures(cols)
 
     '''
 
-    def __init__(self, cols):
-        # Initialize placeholders for the medians
-        self.insee_median = None
-        self.meteo_median = None
-        self.cols = cols
-
-        if "insee_%_agri" in self.cols:
-            self.handle_insee = True
-        else:
-            self.handle_insee = False
-        if "meteo_rain_height" in self.cols:
-            self.handle_meteo = True
-        else:
-            self.handle_meteo = False
+    def __init__(self, cols_to_handle, department_col="piezo_station_department_code", date_col="meteo_date"):
+        # Initialize placeholders for the medians and additional parameters
+        self.department_col = department_col
+        self.date_col = date_col
+        self.meteo_group_means = None
+        self.cols_to_handle = cols_to_handle
+        self.department_medians = {}
 
     def fit(self, X, y=None):
-        # Column names to clean
-        insee = "insee_%_agri"
+        # Column names
         meteo = "meteo_rain_height"
 
-        # Standardize the `insee_%_agri` column
-        if self.handle_insee:
+        print(f">> (Info) Recuperations des moyennes des données INSEE par department")
 
-            # Converts strings to NaN
-            X[insee] = pd.to_numeric(X[insee], errors='coerce')
-            X[insee] = X[insee].astype(float)  # Ensure column is float
-            print(
-                f">> (Info) Column {insee} has been standardized to numeric.")
-            self.insee_median = X[insee].median()
+        # Handle "meteo_rain_height"
+        if meteo in self.cols_to_handle:
 
-        # Compute and store the medians after standardizing
-        if self.handle_meteo:
-            self.meteo_median = X[meteo].median()
+            X[self.date_col] = pd.to_datetime(X[self.date_col])
+            X['month'] = X[self.date_col].dt.month
+            self.meteo_group_means = (
+                X.groupby([self.department_col, 'month'])[meteo]
+                .mean()
+                .reset_index()
+                .rename(columns={meteo: 'mean_rain_height'})
+            )
+
+        # Handle all other columns (specified in cols_to_handle, excluding rain)
+        for col in self.cols_to_handle:
+            if col != meteo:
+
+                X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
+                self.department_medians[col] = (
+                    X.groupby(self.department_col)[col].median()
+                )
+
+        print(f">> (Info) Infos medianes Insee recupérees")
 
         return self
 
     def transform(self, X):
         # Column names
-        insee = "insee_%_agri"
         meteo = "meteo_rain_height"
 
-        if self.handle_insee:
+        # Handle "meteo_rain_height"
+        if meteo in self.cols_to_handle:
 
-            # Ensure the `insee_%_agri` column is standardized (in case it wasn't during fit)
-            X[insee] = pd.to_numeric(X[insee], errors='coerce')
-            X[insee] = X[insee].astype(float)
+            X[self.date_col] = pd.to_datetime(X[self.date_col])
+            X['month'] = X[self.date_col].dt.month
+            X = pd.merge(
+                X,
+                self.meteo_group_means,
+                how='left',
+                on=[self.department_col, 'month']
+            )
+            X[meteo] = X[meteo].fillna(X['mean_rain_height'])
 
-        # Fill missing values with the computed medians
-            X[insee] = X[insee].fillna(self.insee_median)
+            X.drop(columns=['mean_rain_height', 'month'], inplace=True)
 
-            print(
-                f">> (Info) Missing values in {insee} filled with median: {self.insee_median}")
+        # Handle all other columns (specified in cols_to_handle, excluding rain)
+        for col in self.cols_to_handle:
+            if col != meteo:
 
-        if self.handle_meteo:
-            X[meteo] = X[meteo].fillna(self.meteo_median)
-            print(
-                f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
+                X[col] = pd.to_numeric(X[col], errors='coerce').astype(float)
+                X[col] = X[col].fillna(
+                    X.groupby(self.department_col)[col].transform('median')
+                )
+
+        print(f">> (Info) Valeurs Manquantes comblées avec les Médianes.")
 
         return X
-    
+
 
 class CleanTemp(Transformer):
     """
@@ -290,56 +368,64 @@ class CleanTemp(Transformer):
     - Au final, pour la température, on garde uniquement meteo_temperature_avg, meteo_temperature_min, meteo_temperature_max, meteo_temperature_min_ground
     Mettre ce Transformer avant TemperaturePressionTrans
     """
+
     def __init__(self):
-       return
+        return
 
     def fit(self, X, y=None):
         X = X.copy()
 
         self.reglin_avg = LinearRegression().fit(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
+                X["meteo_temperature_avg_threshold"].notna(
+                ) & X["meteo_temperature_avg"].notna(),
                 "meteo_temperature_avg_threshold"
             ]),
             y=X.loc[
-                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
+                X["meteo_temperature_avg_threshold"].notna(
+                ) & X["meteo_temperature_avg"].notna(),
                 "meteo_temperature_avg"
             ]
         )
 
         self.reglin_minground = LinearRegression().fit(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
+                X["meteo_temperature_min"].notna(
+                ) & X["meteo_temperature_min_ground"].notna(),
                 "meteo_temperature_min"
             ]),
             y=X.loc[
-                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
+                X["meteo_temperature_min"].notna(
+                ) & X["meteo_temperature_min_ground"].notna(),
                 "meteo_temperature_min_ground"
             ]
         )
 
         return self
 
-    
     def transform(self, X):
         X = X.copy()
 
         X.loc[
-            X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
+            X["meteo_temperature_avg"].isna(
+            ) & X["meteo_temperature_avg_threshold"].notna(),
             "meteo_temperature_avg"
         ] = self.reglin_avg.predict(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
+                X["meteo_temperature_avg"].isna(
+                ) & X["meteo_temperature_avg_threshold"].notna(),
                 "meteo_temperature_avg_threshold"
             ])
         )
 
         X.loc[
-            X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
+            X["meteo_temperature_min_ground"].isna(
+            ) & X["meteo_temperature_min"].notna(),
             "meteo_temperature_min_ground"
         ] = self.reglin_minground.predict(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
+                X["meteo_temperature_min_ground"].isna(
+                ) & X["meteo_temperature_min"].notna(),
                 "meteo_temperature_min"
             ])
         )
@@ -356,7 +442,6 @@ class TemperaturePressionTrans(Transformer):
     RETURNS : les colonnes de l'input, avec valeurs manquantes completées, et dropped la ou ya plus de 60% valeur manquantes
     '''
 
-
     def __init__(self, columns: list[str]):
         self.columns = columns
         pass
@@ -364,10 +449,9 @@ class TemperaturePressionTrans(Transformer):
     def fit(self, X, y=None):
         return self
 
-    
     def transform(self, X):
-        #Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
-        
+        # Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
+
         # Select only the specified columns
         relevant_cols = [col for col in self.columns if col in X.columns]
 
@@ -375,23 +459,26 @@ class TemperaturePressionTrans(Transformer):
         threshold = 0.6 * len(X)
 
         # Identify columns to drop within the relevant columns
-        cols_to_drop = [col for col in relevant_cols if X[col].isna().sum() > threshold]
+        cols_to_drop = [
+            col for col in relevant_cols if X[col].isna().sum() > threshold]
 
         # Drop the identified columns
         X = X.drop(columns=cols_to_drop)
 
-        #Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
-        
+        # Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
+
         for column in self.columns:
             if column in X.columns:
                 # Check if the column contains NaN values
                 if X[column].isna().sum() > 0:
                     # Fill NaN by department and date mean
-                    moyennes_departement_date = X.groupby(['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
+                    moyennes_departement_date = X.groupby(
+                        ['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
                     X[column] = X[column].fillna(moyennes_departement_date)
 
                     # Step 3: Fill any remaining NaN by the mean of the date (ignoring the department)
-                    moyennes_date = X.groupby('piezo_measurement_date')[column].transform('mean')
+                    moyennes_date = X.groupby('piezo_measurement_date')[
+                        column].transform('mean')
                     X[column] = X[column].fillna(moyennes_date)
 
         return X
@@ -443,7 +530,8 @@ class CleanLatLon(Transformer):
             "prelev_latitude_2",
             "near_meteo"
         ]
-        X.drop(columns=drop_cols, inplace=True,errors='ignore') #errors=ignore pour qu'il n y ait pas d'erreurs is la colonne n'existe pas 
+        # errors=ignore pour qu'il n y ait pas d'erreurs is la colonne n'existe pas
+        X.drop(columns=drop_cols, inplace=True, errors='ignore')
 
         return X
 
@@ -480,6 +568,50 @@ class DummyTransformer(Transformer):
 
     def transform(self, X):
         X = pd.get_dummies(X, columns=self.columns)
+        return X
+
+
+class PrelevVol(Transformer):
+    """Remplir les valeur manquantes des colonnes prelevement volume par la minimum de la colonne par commune de cette 
+    """
+
+    def __init__(self, columns):
+        self.columns = ['prelev_volume_0', 'prelev_volume_1',
+                        'prelev_volume_2', 'prelev_other_volume_sum']
+
+    def fit(self, X, y=None):
+        self.min_vol = X.groupby('piezo_station_commune_name')[
+            self.columns].min()
+        print(
+            f">> (INFO) missing values in columns {self.columns} are filled by the minimum of the column by commune")
+        return self
+
+    def transform(self, X):
+        for col in self.columns:
+            X[col] = X[col].fillna(
+                X['piezo_station_commune_name'].map(self.min_vol[col]))
+        return X
+
+
+class PrelevVol(Transformer):
+    """Remplir les valeur manquantes des colonnes prelevement volume par la minimum de la colonne par commune de cette 
+    """
+
+    def __init__(self, columns):
+        self.columns = ['prelev_volume_0', 'prelev_volume_1',
+                        'prelev_volume_2', 'prelev_other_volume_sum']
+
+    def fit(self, X, y=None):
+        self.min_vol = X.groupby('piezo_station_commune_name')[
+            self.columns].min()
+        print(
+            f">> (INFO) missing values in columns {self.columns} are filled by the minimum of the column by commune")
+        return self
+
+    def transform(self, X):
+        for col in self.columns:
+            X[col] = X[col].fillna(
+                X['piezo_station_commune_name'].map(self.min_vol[col]))
         return X
 
 class CleanHydro(Transformer):
