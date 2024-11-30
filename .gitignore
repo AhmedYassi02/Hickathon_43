@@ -6,6 +6,7 @@ data/
 ### Yassine ###
 test_data.ipynb
 *.pyc
+optuna_model.py
 r
 ### Matteo ###
 matteo*
