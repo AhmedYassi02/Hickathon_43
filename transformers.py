@@ -76,6 +76,9 @@ class DateTransformer(Transformer):
         X = X.copy()
         for col in self.date_cols:
             if col == 'meteo_date':
+                X['month'] = pd.to_datetime(
+                    X['meteo_date'], errors='coerce').dt.month
+
                 X[col] = pd.to_datetime(X[col], errors='coerce').dt.dayofyear.apply(
                     lambda x: np.cos((x - 1) * 2 * np.pi / 365.25))
             else:
@@ -138,7 +141,7 @@ class PartialStandardScaler(Transformer):
 
     def __init__(
         self,
-        columns: list[str],
+        columns: list[str] | str,
         *,
         copy: bool = True,
         with_mean: bool = True,
@@ -151,7 +154,17 @@ class PartialStandardScaler(Transformer):
             with_std=with_std,
         )
 
+        self.copy = copy
+        self.with_mean = with_mean
+        self.with_std = with_std
+
     def fit(self, X, y=None):
+
+        if self.columns == "all":
+            self.columns = X.columns.to_list()
+
+        assert X.apply(lambda x: pd.api.types.is_numeric_dtype(
+            x)).all(), "Some columns to standardize are not numerics"
 
         self.standardizer.fit(X[self.columns])
 
@@ -159,10 +172,13 @@ class PartialStandardScaler(Transformer):
 
     def transform(self, X):
 
+        assert X.apply(lambda x: pd.api.types.is_numeric_dtype(
+            x)).all(), "Some columns to standardize are not numerics"
+
         X_standardized_np = self.standardizer.transform(X[self.columns])
 
         X_standardized = pd.DataFrame(
-            X_standardized_np, columns=self.standardizer.get_feature_names_out())
+            X_standardized_np, columns=self.standardizer.get_feature_names_out(), index=X.index)
 
         X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
 
@@ -236,6 +252,7 @@ class CleanFeatures(Transformer):
 
         return X
 
+
 class TemperaturePressionTrans(Transformer):
     def __init__(self, columns: list[str]):
         self.columns = columns
@@ -244,29 +261,30 @@ class TemperaturePressionTrans(Transformer):
     def fit(self, X, y=None):
         return self
 
-    
     def transform(self, X):
-        #Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
+        # Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
         threshold = 0.6 * len(X)
         cols_to_drop = X.columns[X.isna().sum() > threshold]
         X = X.drop(columns=cols_to_drop)
 
-        #Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
-        
+        # Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
+
         for column in self.columns:
             if column in X.columns:
                 # Check if the column contains NaN values
                 if X[column].isna().sum() > 0:
                     # Fill NaN by department and date mean
-                    moyennes_departement_date = X.groupby(['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
+                    moyennes_departement_date = X.groupby(
+                        ['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
                     X[column] = X[column].fillna(moyennes_departement_date)
 
                     # Step 3: Fill any remaining NaN by the mean of the date (ignoring the department)
-                    moyennes_date = X.groupby('piezo_measurement_date')[column].transform('mean')
+                    moyennes_date = X.groupby('piezo_measurement_date')[
+                        column].transform('mean')
                     X[column] = X[column].fillna(moyennes_date)
 
         return X
-    
+
 
 class CleanLatLon(Transformer):
     """
@@ -274,6 +292,7 @@ class CleanLatLon(Transformer):
     - Inversion lat/lon pour les stations météos
     - Application d'un threshold (float -> boolean) pour la distance
     """
+
     def __init__(self, apply_threshold=True, dist_to_meteo_threshold=None):
         self.apply_threshold = apply_threshold
         self.threshold = dist_to_meteo_threshold
@@ -283,7 +302,6 @@ class CleanLatLon(Transformer):
             self.threshold = X["distance_piezo_meteo"].quantile(0.95)
         return self
 
-    
     def transform(self, X):
         X = X.copy()
 
@@ -310,4 +328,39 @@ class CleanLatLon(Transformer):
         ]
         X.drop(columns=drop_cols, inplace=True)
 
+        return X
+
+
+class MissingCat(Transformer):
+    """Créer une categorie 'missing' pour les valeurs manquantes car dans le data test il ya bcp de valeur manquante dans ces colonnes catégorielles
+    """
+
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        print(
+            f">> (INFO) missing categorie is added to columns {self.columns}")
+        return self
+
+    def transform(self, X):
+        X = (X.copy()
+             .fillna('missing', axis=1)
+             )
+        return X
+
+
+class DummyTransformer(Transformer):
+    """Transoformer les categories en valeurs entieres pour les colonnes catégorielles
+    """
+
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        print(f">> (INFO) columns {self.columns} are transformed to dummies")
+        return self
+
+    def transform(self, X):
+        X = pd.get_dummies(X, columns=self.columns)
         return X
