@@ -188,15 +188,15 @@ class Prelev(Transformer):
             self.mode_oh_encoders[i].fit(pd.DataFrame(
                 X[f"prelev_volume_obtention_mode_label_{i}"]))
 
-        self.mean = X[self.columns].mean(numeric_only=True)
+        # self.mean = X[self.columns].mean(numeric_only=True)
 
         return self
 
     def transform(self, X):
 
         for i in range(self.scale):
-            X[f"prelev_volume_{i}"] = X[f"prelev_volume_{i}"].fillna(
-                self.mean[f"prelev_volume_{i}"])
+            # X[f"prelev_volume_{i}"] = X[f"prelev_volume_{i}"].fillna(
+            #     self.mean[f"prelev_volume_{i}"])
             X_usage = self.usage_oh_encoders[i].transform(
                 pd.DataFrame(X[f"prelev_usage_label_{i}"])).toarray()
             X_mode = self.mode_oh_encoders[i].transform(pd.DataFrame(
@@ -219,9 +219,9 @@ class Prelev(Transformer):
                        f"prelev_volume_{i}", f"prelev_usage_label_{i}", f"prelev_volume_obtention_mode_label_{i}"])
 
         for i in range(self.scale):
-            mean = self.mean[f"prelev_volume_{i}"]
-            print(
-                f">> (Info - Prelev) 'prelev_volume_{i}' has been filledna with mean = {mean}")
+            # mean = self.mean[f"prelev_volume_{i}"]
+            # print(
+            #     f">> (Info - Prelev) 'prelev_volume_{i}' has been filledna with mean = {mean}")
             print(
                 f">> (Info - Prelev) 'prelev_usage_label_{i}' has been one-hot-encoded in {len(self.usage_oh_encoders[i].get_feature_names_out())} features")
             print(
