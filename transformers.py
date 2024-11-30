@@ -56,7 +56,8 @@ class DropNaRate(Transformer):
 
         # Ne pas drop "meteo_temperature_min_ground"
         if 'meteo_temperature_min_ground' in self.cols_to_drop:
-            self.cols_to_drop = self.cols_to_drop.drop('meteo_temperature_min_ground') 
+            self.cols_to_drop = self.cols_to_drop.drop(
+                'meteo_temperature_min_ground')
 
         print(f">> (Info) Droped columns : {self.cols_to_drop.to_list()}")
 
@@ -378,8 +379,9 @@ class CleanFeatures(Transformer):
         print(f">> (Info) Valeurs Manquantes comblées avec les Médianes.")
 
         return X
-    
-## Clean pizzo
+
+# Clean pizzo
+
 
 class CleanPizo(Transformer):
     '''
@@ -393,7 +395,7 @@ class CleanPizo(Transformer):
     INPUT : ['piezo_station_investigation_depth', 'piezo_obtention_mode', 'piezo_status', 'piezo_qualification', 'piezo_measure_nature_code']
     RETURNS : Cleaned and transformed columns one hot encoded 
     DROPS : None
-    
+
     (ca renvoie bcp : 
     piezo_obtention_mode_Mode d'obtention inconnu',
        'piezo_obtention_mode_Valeur mesurée',
@@ -407,7 +409,7 @@ class CleanPizo(Transformer):
        'piezo_measure_nature_code_N'])
 
 
-    
+
 
     Example:
     cols = ['piezo_station_investigation_depth', 'piezo_obtention_mode', 'piezo_status', 'piezo_qualification', 'piezo_measure_nature_code']
@@ -420,7 +422,8 @@ class CleanPizo(Transformer):
         self.department_col = department_col
         self.cols_to_handle = cols_to_handle
         self.department_means = {}  # For storing department-level means for numerical columns
-        self.column_modes = {}  # For storing the most frequent values (modes) for categorical columns
+        # For storing the most frequent values (modes) for categorical columns
+        self.column_modes = {}
         self.one_hot_encoders = {}  # For storing one-hot encoders for categorical columns
 
     def fit(self, X, y=None):
@@ -429,25 +432,29 @@ class CleanPizo(Transformer):
         # Handle piezo_station_investigation_depth: Fill missing with mean of department
         depth_col = "piezo_station_investigation_depth"
         if depth_col in self.cols_to_handle:
-            self.department_means[depth_col] = X.groupby(self.department_col)[depth_col].mean()
+            self.department_means[depth_col] = X.groupby(
+                self.department_col)[depth_col].mean()
 
         # Prepare for one-hot encoding and calculate modes for categorical columns
         for col in ['piezo_obtention_mode', 'piezo_status', 'piezo_qualification', 'piezo_measure_nature_code']:
             if col in self.cols_to_handle:
                 # Calculate the most frequent value (mode) for the column
-                self.column_modes[col] = X[col].mode()[0]  # Store the most frequent value
+                # Store the most frequent value
+                self.column_modes[col] = X[col].mode()[0]
                 # Fill missing values for piezo_measure_nature_code with "I" during fitting
                 if col == 'piezo_measure_nature_code':
-                     # Ensure all values are strings
+                    # Ensure all values are strings
                     X[col] = X[col].astype(str)
 
                     # Fill missing values with '0'
                     X[col] = X[col].fillna('0')
 
                     # Replace values not in ['N', 'I', 'D', 'S'] with '0'
-                    X[col] = X[col].apply(lambda x: x if x in ['N', 'I', 'D', 'S'] else '0')
+                    X[col] = X[col].apply(lambda x: x if x in [
+                                          'N', 'I', 'D', 'S'] else '0')
 
-                self.one_hot_encoders[col] = pd.get_dummies(X[col], prefix=col, dtype=int).columns.tolist()
+                self.one_hot_encoders[col] = pd.get_dummies(
+                    X[col], prefix=col, dtype=int).columns.tolist()
 
         print(f">> (Info) Fitting completed: Means, modes, and one-hot encoders prepared.")
 
@@ -460,23 +467,26 @@ class CleanPizo(Transformer):
         depth_col = "piezo_station_investigation_depth"
         if depth_col in self.cols_to_handle:
             X[depth_col] = X[depth_col].fillna(
-                X.groupby(self.department_col)[depth_col].transform(lambda grp: grp.mean())
+                X.groupby(self.department_col)[
+                    depth_col].transform(lambda grp: grp.mean())
             )
-            print(f">> (Info) Missing values in {depth_col} filled with department means.")
+            print(
+                f">> (Info) Missing values in {depth_col} filled with department means.")
 
         # Handle categorical columns with one-hot encoding and missing value handling
         for col in ['piezo_obtention_mode', 'piezo_status', 'piezo_qualification', 'piezo_measure_nature_code']:
             if col in self.cols_to_handle:
                 # Fill missing values for piezo_measure_nature_code with "I"
                 if col == 'piezo_measure_nature_code':
-                     # Ensure all values are strings
+                    # Ensure all values are strings
                     X[col] = X[col].astype(str)
 
                     # Fill missing values with '0'
                     X[col] = X[col].fillna('0')
 
                     # Replace values not in ['N', 'I', 'D', 'S'] with '0'
-                    X[col] = X[col].apply(lambda x: x if x in ['N', 'I', 'D', 'S'] else '0')
+                    X[col] = X[col].apply(lambda x: x if x in [
+                                          'N', 'I', 'D', 'S'] else '0')
                 else:
                     # Fill missing values with the most frequent value (mode)
                     X[col] = X[col].fillna(self.column_modes[col])
@@ -487,18 +497,20 @@ class CleanPizo(Transformer):
                 # Ensure all one-hot columns exist, even if not present in test data
                 for dummy_col in self.one_hot_encoders[col]:
                     if dummy_col not in dummies:
-                        dummies[dummy_col] = 0  # Add missing column with default value 0
+                        # Add missing column with default value 0
+                        dummies[dummy_col] = 0
 
                 # Align and concatenate
-                dummies = dummies[self.one_hot_encoders[col]]  # Ensure column order matches training
+                # Ensure column order matches training
+                dummies = dummies[self.one_hot_encoders[col]]
                 X = pd.concat([X, dummies], axis=1)
                 X.drop(columns=[col], inplace=True)
-                print(f">> (Info) One-hot encoding applied to {col} with missing values filled.")
+                print(
+                    f">> (Info) One-hot encoding applied to {col} with missing values filled.")
 
         print(f">> (Info) Data transformation completed.")
 
         return X
-
 
 
 class CleanTemp(Transformer):
@@ -509,56 +521,64 @@ class CleanTemp(Transformer):
     - Au final, pour la température, on garde uniquement meteo_temperature_avg, meteo_temperature_min, meteo_temperature_max, meteo_temperature_min_ground
     Mettre ce Transformer avant TemperaturePressionTrans
     """
+
     def __init__(self):
-       return
+        return
 
     def fit(self, X, y=None):
         X = X.copy()
 
         self.reglin_avg = LinearRegression().fit(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
+                X["meteo_temperature_avg_threshold"].notna(
+                ) & X["meteo_temperature_avg"].notna(),
                 "meteo_temperature_avg_threshold"
             ]),
             y=X.loc[
-                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
+                X["meteo_temperature_avg_threshold"].notna(
+                ) & X["meteo_temperature_avg"].notna(),
                 "meteo_temperature_avg"
             ]
         )
 
         self.reglin_minground = LinearRegression().fit(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
+                X["meteo_temperature_min"].notna(
+                ) & X["meteo_temperature_min_ground"].notna(),
                 "meteo_temperature_min"
             ]),
             y=X.loc[
-                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
+                X["meteo_temperature_min"].notna(
+                ) & X["meteo_temperature_min_ground"].notna(),
                 "meteo_temperature_min_ground"
             ]
         )
 
         return self
 
-    
     def transform(self, X):
         X = X.copy()
 
         X.loc[
-            X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
+            X["meteo_temperature_avg"].isna(
+            ) & X["meteo_temperature_avg_threshold"].notna(),
             "meteo_temperature_avg"
         ] = self.reglin_avg.predict(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
+                X["meteo_temperature_avg"].isna(
+                ) & X["meteo_temperature_avg_threshold"].notna(),
                 "meteo_temperature_avg_threshold"
             ])
         )
 
         X.loc[
-            X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
+            X["meteo_temperature_min_ground"].isna(
+            ) & X["meteo_temperature_min"].notna(),
             "meteo_temperature_min_ground"
         ] = self.reglin_minground.predict(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
+                X["meteo_temperature_min_ground"].isna(
+                ) & X["meteo_temperature_min"].notna(),
                 "meteo_temperature_min"
             ])
         )
@@ -721,9 +741,9 @@ class PrelevVol(Transformer):
                         'prelev_volume_2', 'prelev_other_volume_sum']
 
     def fit(self, X, y=None):
-        print(X.columns)
         self.min_vol = X.groupby('piezo_station_commune_name')[
             self.columns].min()
+        self.min_vol = self.min_vol.fillna(0)
         print(
             f">> (INFO) missing values in columns {self.columns} are filled by the minimum of the column by commune")
         return self
@@ -748,12 +768,15 @@ class CleanHydro(Transformer):
     """
 
     def __init__(self):
-       self.hydro_quantity_encoder = OneHotEncoder(max_categories=2, drop="first")
-       return
+        self.hydro_quantity_encoder = OneHotEncoder(
+            max_categories=2, drop="first")
+        return
 
     def fit(self, X, y=None):
-        self.mean_without_outliers = X.loc[X["hydro_observation_result_elab"]<1e8, "hydro_observation_result_elab"].mean()
-        self.hydro_quantity_encoder.fit(pd.DataFrame(X["hydro_hydro_quantity_elab"]))
+        self.mean_without_outliers = X.loc[X["hydro_observation_result_elab"]
+                                           < 1e8, "hydro_observation_result_elab"].mean()
+        self.hydro_quantity_encoder.fit(
+            pd.DataFrame(X["hydro_hydro_quantity_elab"]))
         return self
 
     def transform(self, X):
@@ -766,11 +789,15 @@ class CleanHydro(Transformer):
               0, "hydro_observation_result_elab"] = 0
         X["hydro_observation_result_elab"] = X["hydro_observation_result_elab"]+1
 
-        X["hydro_observation_log"] = X["hydro_observation_result_elab"].apply(np.log)
+        X["hydro_observation_log"] = X["hydro_observation_result_elab"].apply(
+            np.log)
 
-        X_encode = self.hydro_quantity_encoder.transform(pd.DataFrame(X["hydro_hydro_quantity_elab"])).toarray()
-        X_encode_df = pd.DataFrame(X_encode, columns=self.hydro_quantity_encoder.get_feature_names_out(), index=X.index)
-        X = pd.concat([X.drop(columns=["hydro_hydro_quantity_elab"]), X_encode_df], axis=1)
+        X_encode = self.hydro_quantity_encoder.transform(
+            pd.DataFrame(X["hydro_hydro_quantity_elab"])).toarray()
+        X_encode_df = pd.DataFrame(
+            X_encode, columns=self.hydro_quantity_encoder.get_feature_names_out(), index=X.index)
+        X = pd.concat(
+            [X.drop(columns=["hydro_hydro_quantity_elab"]), X_encode_df], axis=1)
 
         hydro_cols_to_drop = [
             "hydro_station_code",
