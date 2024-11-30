@@ -64,9 +64,11 @@ class DropNaRate(Transformer):
 class DateTransformer(Transformer):
     def __init__(self):
         self.date_cols = []
+        self.time_cols = []
 
     def fit(self, X, y=None):
         self.date_cols = [col for col in X.columns if 'date' in col]
+        self.time_cols = [col for col in X.columns if 'time' in col]
         return self
 
     def transform(self, X):
@@ -78,6 +80,9 @@ class DateTransformer(Transformer):
             else:
                 X.drop(col, axis=1, inplace=True)
             X.rename(columns={'meteo_date': 'date'}, inplace=True)
+
+        for col in self.time_cols:
+            X[col] = X[col].apply(lambda x: np.cos(x * 2 * np.pi / 24))
         return X
 
 
