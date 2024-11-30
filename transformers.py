@@ -288,7 +288,7 @@ class CleanTemp(Transformer):
     - Remplacement des valeurs manquantes de temp_avg en estimant à partir de temp_avg_threshold
     - idem pour temp_min_ground, à partir de temp_min
     - Au final, pour la température, on garde uniquement meteo_temperature_avg, meteo_temperature_min, meteo_temperature_max, meteo_temperature_min_ground
-    Mettre se Transformer avant TemperaturePressionTrans
+    Mettre ce Transformer avant TemperaturePressionTrans
     """
     def __init__(self):
        return
@@ -403,7 +403,7 @@ class CleanLatLon(Transformer):
     - Inversion lat/lon pour les stations météos
     - Application d'un threshold (float -> boolean) pour la distance
 
-     NEEDS: ["distance_piezo_meteo",'piezo_station_longitude','piezo_station_latitude','meteo_latitude','meteo_longitude']
+    NEEDS: ["distance_piezo_meteo",'piezo_station_longitude','piezo_station_latitude','meteo_latitude','meteo_longitude']
     INPUT: /
     RETURNS : 
     DROPS: A lot (cf en bas du code)
@@ -412,11 +412,11 @@ class CleanLatLon(Transformer):
 
     def __init__(self, apply_threshold=True, dist_to_meteo_threshold=None):
         self.apply_threshold = apply_threshold
-        self.threshold = dist_to_meteo_threshold
+        self.dist_to_meteo_threshold = dist_to_meteo_threshold
 
     def fit(self, X, y=None):
-        if self.apply_threshold and self.threshold is None:
-            self.threshold = X["distance_piezo_meteo"].quantile(0.95)
+        if self.apply_threshold and self.dist_to_meteo_threshold is None:
+            self.dist_to_meteo_threshold = X["distance_piezo_meteo"].quantile(0.95)
         return self
 
     def transform(self, X):
@@ -427,7 +427,7 @@ class CleanLatLon(Transformer):
         X["meteo_latitude"] = temp
 
         if self.apply_threshold:
-            X["near_meteo"] = (X["distance_piezo_meteo"] <= self.threshold).astype(float)
+            X["near_meteo"] = (X["distance_piezo_meteo"] <= self.dist_to_meteo_threshold).astype(float)
             X["distance_piezo_meteo"] = X["near_meteo"]
 
         drop_cols = [
@@ -480,4 +480,46 @@ class DummyTransformer(Transformer):
 
     def transform(self, X):
         X = pd.get_dummies(X, columns=self.columns)
+        return X
+
+class CleanHydro(Transformer):
+    """
+    Clean les données de la station hydrométrique
+    - Valeurs aberrantes -> mean
+    - Passe au log le resultat, en ajustant les valeurs négatives à 0
+
+    NEEDS: ["hydro_observation_result_elab"]
+    INPUTS: /
+    RETURNS: ["hydro_observation_result_elab", "hydro_observation_log", "hydro_status_code", "hydro_qualification_code", "hydro_hydro_quantity_elab"]
+    """
+    def __init__(self):
+       return
+
+    def fit(self, X, y=None):
+        self.mean_without_outliers = X.loc[X["hydro_observation_result_elab"]<1e8, "hydro_observation_result_elab"].mean()
+        return self
+
+    
+    def transform(self, X):
+        X = X.copy()
+
+        X.loc[X["hydro_observation_result_elab"]>1e8, "hydro_observation_result_elab"] = self.mean_without_outliers
+
+        X.loc[X["hydro_observation_result_elab"]<0, "hydro_observation_result_elab"] = 0
+        X["hydro_observation_result_elab"] = X["hydro_observation_result_elab"]+1
+
+        X["hydro_observation_log"] = X["hydro_observation_result_elab"].apply(np.log)
+
+        hydro_cols_to_drop = [
+            "hydro_station_code",
+            "hydro_observation_date_elab",
+            "hydro_status_label",
+            "hydro_method_code",
+            "hydro_method_label",
+            "hydro_qualification_label",
+            "hydro_longitude",
+            "hydro_latitude",
+        ]
+        X.drop(columns=hydro_cols_to_drop, inplace=True, errors="ignore")
+
         return X
