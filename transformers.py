@@ -159,10 +159,12 @@ class Prelev(Transformer):
         columns: list[str],
         usage_label_max_categories: int,
         mode_label_max_categories: int,
-        scale: int,  # in [0, 1, 2]
+        scale: int,  # in [1, 2, 3]
     ):
         self.columns = columns
         self.scale = scale
+        self.mode_label_max_categories = mode_label_max_categories
+        self.usage_label_max_categories = usage_label_max_categories
 
         self.usage_oh_encoders: list[OneHotEncoder] = [
             OneHotEncoder(
@@ -211,6 +213,10 @@ class Prelev(Transformer):
                 X_usage_df,
                 X_mode_df
             ], axis=1)
+
+        for i in range(self.scale, 3):
+            X = X.drop(columns=[
+                       f"prelev_volume_{i}", f"prelev_usage_label_{i}", f"prelev_volume_obtention_mode_label_{i}"])
 
         for i in range(self.scale):
             mean = self.mean[f"prelev_volume_{i}"]
