@@ -99,7 +99,7 @@ class AltitudeTrans(Transformer):
         
         for col in self.columns:
             X[col] = X[col].clip(upper=self.max_altitude[col]) # For high value, we cap to the max value of train
-            X[col][X[col] < 0] = self.most_frequent[col] # Value < 0, we put the most frequent
+            X.loc[X[col] < 0, col] = self.most_frequent[col] # Value < 0, we put the most frequent
 
         return X
     
@@ -137,6 +137,8 @@ class PartialStandardScaler(Transformer):
         X = pd.concat([X.drop(self.columns, axis=1), X_standardized], axis=1)
 
         print(f">> (INFO - PartialStandardScaler) columns {self.columns} have bean standardized")
+    
+        return X
 
 ##### --------------- class yael --------------------------###
 class CleanYael(Transformer):
