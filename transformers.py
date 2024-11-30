@@ -6,6 +6,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from pathlib import Path
+from sklearn.model_selection import train_test_split
 
 
 class Transformer(ABC, BaseEstimator, TransformerMixin):
@@ -224,9 +225,22 @@ if __name__ == "__main__":
 
     df = pd.read_csv(path_src_dataset)
 
+    target = "piezo_groundwater_level_category"
+
+    X = df.drop(columns=target)
+
+    mapping = {'Very Low': 0, 'Low': 1, 'Average': 2, 'High': 3, 'Very High': 4}
+    y = df[target].map(mapping)
+
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+
     # Apply the transformers selected
     pipeline = Pipeline(steps=[
         ("DropNaRate", DropNaRate(0.7)),
         ("CleanYael", CleanYael())
         # ... Add others transformations
     ])
+
+    processed_X_train = pipeline.fit_transform(X_train)
+    processed_X_val = pipeline.transform(X_val)
