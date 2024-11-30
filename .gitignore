@@ -5,7 +5,8 @@ data/
 
 ### Yassine ###
 test_data.ipynb
-
+*.pyc
+r
 ### Matteo ###
 matteo*
 dash_yassine.py
