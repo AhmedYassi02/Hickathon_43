@@ -235,3 +235,34 @@ class CleanFeatures(Transformer):
                 f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
 
         return X
+
+class TemperaturePressionTrans(Transformer):
+    def __init__(self, columns: list[str]):
+        self.columns = columns
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    
+    def transform(self, X):
+        #Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
+        threshold = 0.6 * len(X)
+        cols_to_drop = X.columns[X.isna().sum() > threshold]
+        X = X.drop(columns=cols_to_drop)
+
+        #Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
+        
+        for column in self.columns:
+            if column in X.columns:
+                # Check if the column contains NaN values
+                if X[column].isna().sum() > 0:
+                    # Fill NaN by department and date mean
+                    moyennes_departement_date = X.groupby(['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
+                    X[column] = X[column].fillna(moyennes_departement_date)
+
+                    # Step 3: Fill any remaining NaN by the mean of the date (ignoring the department)
+                    moyennes_date = X.groupby('piezo_measurement_date')[column].transform('mean')
+                    X[column] = X[column].fillna(moyennes_date)
+
+        return X
