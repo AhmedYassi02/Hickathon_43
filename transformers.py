@@ -89,7 +89,7 @@ class DateTransformer(Transformer):
                     lambda x: np.cos((x - 1) * 2 * np.pi / 365.25))
             else:
                 X.drop(col, axis=1, inplace=True)
-            #X.rename(columns={'meteo_date': 'date'}, inplace=True)
+            # X.rename(columns={'meteo_date': 'date'}, inplace=True)
 
         for col in self.time_cols:
             X[col] = X[col].apply(lambda x: np.cos(x * 2 * np.pi / 24))
@@ -106,7 +106,8 @@ class DropCols(Transformer):
 
     def transform(self, X):
 
-        X = X.drop(columns=self.columns,errors='ignore') #on ingore les erreurs
+        # on ingore les erreurs
+        X = X.drop(columns=self.columns, errors='ignore')
 
         print(f">> (INFO - DropCols) columns {self.columns} is/are droped.")
 
@@ -119,9 +120,8 @@ class AltitudeTrans(Transformer):
     INPUT : ["piezo_station_altitude", "meteo_altitude"]
     RETURNS : ["piezo_station_altitude", "meteo_altitude"]
     DROPS : None
-    
+
     '''
-    
 
     def __init__(self, columns):
         self.columns = columns
@@ -159,7 +159,7 @@ class PartialStandardScaler(Transformer):
     # RETURNS : standardized numeric columns 
     # DROPS : None
     '''
-       
+
     def __init__(
         self,
         columns:  Union[list[str], str],
@@ -280,7 +280,7 @@ class CleanFeatures(Transformer):
                 f">> (Info) Missing values in {meteo} filled with median: {self.meteo_median}")
 
         return X
-    
+
 
 class CleanTemp(Transformer):
     """
@@ -288,58 +288,66 @@ class CleanTemp(Transformer):
     - Remplacement des valeurs manquantes de temp_avg en estimant à partir de temp_avg_threshold
     - idem pour temp_min_ground, à partir de temp_min
     - Au final, pour la température, on garde uniquement meteo_temperature_avg, meteo_temperature_min, meteo_temperature_max, meteo_temperature_min_ground
-    Mettre se Transformer avant TemperaturePressionTrans
+    Mettre ce Transformer avant TemperaturePressionTrans
     """
+
     def __init__(self):
-       return
+        return
 
     def fit(self, X, y=None):
         X = X.copy()
 
         self.reglin_avg = LinearRegression().fit(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
+                X["meteo_temperature_avg_threshold"].notna(
+                ) & X["meteo_temperature_avg"].notna(),
                 "meteo_temperature_avg_threshold"
             ]),
             y=X.loc[
-                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
+                X["meteo_temperature_avg_threshold"].notna(
+                ) & X["meteo_temperature_avg"].notna(),
                 "meteo_temperature_avg"
             ]
         )
 
         self.reglin_minground = LinearRegression().fit(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
+                X["meteo_temperature_min"].notna(
+                ) & X["meteo_temperature_min_ground"].notna(),
                 "meteo_temperature_min"
             ]),
             y=X.loc[
-                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
+                X["meteo_temperature_min"].notna(
+                ) & X["meteo_temperature_min_ground"].notna(),
                 "meteo_temperature_min_ground"
             ]
         )
 
         return self
 
-    
     def transform(self, X):
         X = X.copy()
 
         X.loc[
-            X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
+            X["meteo_temperature_avg"].isna(
+            ) & X["meteo_temperature_avg_threshold"].notna(),
             "meteo_temperature_avg"
         ] = self.reglin_avg.predict(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
+                X["meteo_temperature_avg"].isna(
+                ) & X["meteo_temperature_avg_threshold"].notna(),
                 "meteo_temperature_avg_threshold"
             ])
         )
 
         X.loc[
-            X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
+            X["meteo_temperature_min_ground"].isna(
+            ) & X["meteo_temperature_min"].notna(),
             "meteo_temperature_min_ground"
         ] = self.reglin_minground.predict(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
+                X["meteo_temperature_min_ground"].isna(
+                ) & X["meteo_temperature_min"].notna(),
                 "meteo_temperature_min"
             ])
         )
@@ -356,7 +364,6 @@ class TemperaturePressionTrans(Transformer):
     RETURNS : les colonnes de l'input, avec valeurs manquantes completées, et dropped la ou ya plus de 60% valeur manquantes
     '''
 
-
     def __init__(self, columns: list[str]):
         self.columns = columns
         pass
@@ -364,10 +371,9 @@ class TemperaturePressionTrans(Transformer):
     def fit(self, X, y=None):
         return self
 
-    
     def transform(self, X):
-        #Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
-        
+        # Partie 1 : supprimé les colonnes avec + de 60% de valeurs manquantes
+
         # Select only the specified columns
         relevant_cols = [col for col in self.columns if col in X.columns]
 
@@ -375,23 +381,26 @@ class TemperaturePressionTrans(Transformer):
         threshold = 0.6 * len(X)
 
         # Identify columns to drop within the relevant columns
-        cols_to_drop = [col for col in relevant_cols if X[col].isna().sum() > threshold]
+        cols_to_drop = [
+            col for col in relevant_cols if X[col].isna().sum() > threshold]
 
         # Drop the identified columns
         X = X.drop(columns=cols_to_drop)
 
-        #Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
-        
+        # Traitement des valeurs manquantes : moyenne sur le département à la meme date ou meme date si données manquantes
+
         for column in self.columns:
             if column in X.columns:
                 # Check if the column contains NaN values
                 if X[column].isna().sum() > 0:
                     # Fill NaN by department and date mean
-                    moyennes_departement_date = X.groupby(['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
+                    moyennes_departement_date = X.groupby(
+                        ['piezo_station_department_code', 'piezo_measurement_date'])[column].transform('mean')
                     X[column] = X[column].fillna(moyennes_departement_date)
 
                     # Step 3: Fill any remaining NaN by the mean of the date (ignoring the department)
-                    moyennes_date = X.groupby('piezo_measurement_date')[column].transform('mean')
+                    moyennes_date = X.groupby('piezo_measurement_date')[
+                        column].transform('mean')
                     X[column] = X[column].fillna(moyennes_date)
 
         return X
@@ -427,7 +436,8 @@ class CleanLatLon(Transformer):
         X["meteo_latitude"] = temp
 
         if self.apply_threshold:
-            X["near_meteo"] = (X["distance_piezo_meteo"] <= self.threshold).astype(float)
+            X["near_meteo"] = (X["distance_piezo_meteo"] <=
+                               self.threshold).astype(float)
             X["distance_piezo_meteo"] = X["near_meteo"]
 
         drop_cols = [
@@ -443,7 +453,8 @@ class CleanLatLon(Transformer):
             "prelev_latitude_2",
             "near_meteo"
         ]
-        X.drop(columns=drop_cols, inplace=True,errors='ignore') #errors=ignore pour qu'il n y ait pas d'erreurs is la colonne n'existe pas 
+        # errors=ignore pour qu'il n y ait pas d'erreurs is la colonne n'existe pas
+        X.drop(columns=drop_cols, inplace=True, errors='ignore')
 
         return X
 
