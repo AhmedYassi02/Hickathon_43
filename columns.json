@@ -21,8 +21,8 @@
         "hydro_method_label", 
         "hydro_qualification_label", 
         "prelev_structure_code_0",
+        "prelev_structure_code_1",
         "prelev_structure_code_2",
-        "prelev_structure_code_0",
         "prelev_commune_code_insee_0",
         "piezo_measure_nature_name",
         "piezo_continuity_code",
@@ -65,12 +65,13 @@
         "meteo_snow_thickness_6h"
     ],
     "one_hot_encode" : [
-        "prelev_usage_label_0",
-        "hydro_station_code"
+        "prelev_usage_label_0"
     ],
     "missing_cat" : [
+        "prelev_usage_label_0",
         "prelev_usage_label_1",
         "prelev_usage_label_2",
+        "prelev_volume_obtention_mode_label_0",
         "prelev_volume_obtention_mode_label_1",
         "prelev_volume_obtention_mode_label_2"
 
