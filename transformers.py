@@ -54,6 +54,10 @@ class DropNaRate(Transformer):
         perc_na = X.isna().sum()/X.shape[0]
         self.cols_to_drop: pd.Series = perc_na[perc_na > self.rate].index
 
+        # Ne pas drop "meteo_temperature_min_ground"
+        if 'meteo_temperature_min_ground' in self.cols_to_drop:
+            self.cols_to_drop = self.cols_to_drop.drop('meteo_temperature_min_ground') 
+
         print(f">> (Info) Droped columns : {self.cols_to_drop.to_list()}")
 
         return self
@@ -147,7 +151,7 @@ class AltitudeTrans(Transformer):
             # Value < 0, we put the most frequent
             X.loc[X[col] < 0, col] = self.most_frequent[col]
 
-            X = X.fillna(self.mean[col])
+            X[col] = X[col].fillna(self.mean[col])
 
         return X
 
@@ -373,64 +377,56 @@ class CleanTemp(Transformer):
     - Au final, pour la température, on garde uniquement meteo_temperature_avg, meteo_temperature_min, meteo_temperature_max, meteo_temperature_min_ground
     Mettre ce Transformer avant TemperaturePressionTrans
     """
-
     def __init__(self):
-        return
+       return
 
     def fit(self, X, y=None):
         X = X.copy()
 
         self.reglin_avg = LinearRegression().fit(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_avg_threshold"].notna(
-                ) & X["meteo_temperature_avg"].notna(),
+                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
                 "meteo_temperature_avg_threshold"
             ]),
             y=X.loc[
-                X["meteo_temperature_avg_threshold"].notna(
-                ) & X["meteo_temperature_avg"].notna(),
+                X["meteo_temperature_avg_threshold"].notna() & X["meteo_temperature_avg"].notna(),
                 "meteo_temperature_avg"
             ]
         )
 
         self.reglin_minground = LinearRegression().fit(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_min"].notna(
-                ) & X["meteo_temperature_min_ground"].notna(),
+                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
                 "meteo_temperature_min"
             ]),
             y=X.loc[
-                X["meteo_temperature_min"].notna(
-                ) & X["meteo_temperature_min_ground"].notna(),
+                X["meteo_temperature_min"].notna() & X["meteo_temperature_min_ground"].notna(),
                 "meteo_temperature_min_ground"
             ]
         )
 
         return self
 
+    
     def transform(self, X):
         X = X.copy()
 
         X.loc[
-            X["meteo_temperature_avg"].isna(
-            ) & X["meteo_temperature_avg_threshold"].notna(),
+            X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
             "meteo_temperature_avg"
         ] = self.reglin_avg.predict(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_avg"].isna(
-                ) & X["meteo_temperature_avg_threshold"].notna(),
+                X["meteo_temperature_avg"].isna() & X["meteo_temperature_avg_threshold"].notna(),
                 "meteo_temperature_avg_threshold"
             ])
         )
 
         X.loc[
-            X["meteo_temperature_min_ground"].isna(
-            ) & X["meteo_temperature_min"].notna(),
+            X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
             "meteo_temperature_min_ground"
         ] = self.reglin_minground.predict(
             X=pd.DataFrame(X.loc[
-                X["meteo_temperature_min_ground"].isna(
-                ) & X["meteo_temperature_min"].notna(),
+                X["meteo_temperature_min_ground"].isna() & X["meteo_temperature_min"].notna(),
                 "meteo_temperature_min"
             ])
         )
@@ -630,10 +626,12 @@ class CleanHydro(Transformer):
     RETURNS: ["hydro_observation_result_elab", "hydro_observation_log", "hydro_status_code", "hydro_qualification_code", "hydro_hydro_quantity_elab"]
     """
     def __init__(self):
+       self.hydro_quantity_encoder = OneHotEncoder(max_categories=2, drop="first")
        return
 
     def fit(self, X, y=None):
         self.mean_without_outliers = X.loc[X["hydro_observation_result_elab"]<1e8, "hydro_observation_result_elab"].mean()
+        self.hydro_quantity_encoder.fit(pd.DataFrame(X["hydro_hydro_quantity_elab"]))
         return self
 
     
@@ -646,6 +644,10 @@ class CleanHydro(Transformer):
         X["hydro_observation_result_elab"] = X["hydro_observation_result_elab"]+1
 
         X["hydro_observation_log"] = X["hydro_observation_result_elab"].apply(np.log)
+
+        X_encode = self.hydro_quantity_encoder.transform(pd.DataFrame(X["hydro_hydro_quantity_elab"])).toarray()
+        X_encode_df = pd.DataFrame(X_encode, columns=self.hydro_quantity_encoder.get_feature_names_out(), index=X.index)
+        X = pd.concat([X.drop(columns=["hydro_hydro_quantity_elab"]), X_encode_df], axis=1)
 
         hydro_cols_to_drop = [
             "hydro_station_code",
