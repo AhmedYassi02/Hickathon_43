@@ -13,14 +13,11 @@ Link to the Hackathon repository: https://github.com/hi-paris/Hickathon5
 - [Yael Gossec](ENSTA Paris)
 
 ## Hackathon subject
-```
 The subject of the hackathon is to create a model that can predict the level of ground water in a given area. 
 
 ## Repository structure
 ```bash
-├───catboost_info
-│   ├───learn
-│   └───tmp
+
 ├───data
 │   ├───cleaned
 │   │   └───pipelines
@@ -28,11 +25,15 @@ The subject of the hackathon is to create a model that can predict the level of 
 │   │   └───pipelines
 │   ├───src
 │   └───submissions
-├───instance Hfactory
-│   └───template
-└───__pycache__
+├───notebooks
 ```
 
+## Approach to the problem
+1. Data cleaning & preprocessing
+We created a pipeline to clean and preprocess the data. The pipeline is saved in the `data/cleaned/pipelines` folder
+All transformations are coded in classes inside the `transformers.py` file and then added to the pipeline in the `pipe.py` file
+4. Model selection and fine-tuning
+We used a Random Forest Classifier, XGBoost and a CatBoost model to predict the level of ground water. We then used optuna to fine-tune the hyperparameters of each model
+We also tried combining the three models using a voting classifier 
 
-  
 

@@ -1,6 +1,6 @@
 {
     "drop" : [
-        "row_indew",
+        "row_index",
         "piezo_station_department_name",
         "piezo_station_update_date",
         "piezo_station_commune_code_insee",
@@ -21,14 +21,12 @@
         "hydro_method_label", 
         "hydro_qualification_label", 
         "prelev_structure_code_0",
-        "prelev_structure_code_1",
         "prelev_structure_code_2",
+        "prelev_structure_code_0",
         "prelev_commune_code_insee_0",
-        "piezo_measure_nature_name",
-        "piezo_continuity_code",
-        "piezo_continuity_name", 
-        
+        "piezo_station_department_code",
         "meteo_DRR", 
+        "meteo_temperature_min_ground", 
         "meteo_temperature_min_50cm", 
         "meteo_pressure_avg",
         "meteo_pression_maxi", 
@@ -61,18 +59,21 @@
         "meteo_radiation_UV", 
         "meteo_snow_height", 
         "meteo_snow_thickness_max", 
-        "meteo_snow_thickness_6h"
-    ],
-    "one_hot_encode" : [
-        "prelev_usage_label_0"
-    ],
-    "missing_cat" : [
-        "prelev_usage_label_0",
-        "prelev_usage_label_1",
-        "prelev_usage_label_2",
-        "prelev_volume_obtention_mode_label_0",
-        "prelev_volume_obtention_mode_label_1",
-        "prelev_volume_obtention_mode_label_2"
+        "meteo_snow_thickness_6h"],
+    "col_yass" : ["meteo_date","prelev_volume_0", "prelev_volume_1",
+                             "prelev_volume_2", "prelev_other_volume_sum","piezo_station_commune_name"],
+    "altitude_flo" : ["piezo_station_altitude", "meteo_altitude"],
+    "prelev_flo" : ["prelev_volume_0", "prelev_usage_label_0", "prelev_volume_obtention_mode_label_0", "prelev_volume_1", "prelev_usage_label_1", "prelev_volume_obtention_mode_label_1", "prelev_volume_2", "prelev_usage_label_2", "prelev_volume_obtention_mode_label_2"],
+    "meteo_time_flo" : ["meteo_time_tx", "meteo_time_tn"],
+    "cols_yael_input" : ["insee_%_agri", "meteo_rain_height", "insee_pop_commune", "insee_med_living_level", "insee_%_ind", "insee_%_const"],
+    "cols_yael_need" : ["piezo_station_department_code", "meteo_date"],
 
-    ]
+    "cols_lucien_need" : ["piezo_station_department_code", "piezo_measurement_date"],
+    "cols_lucien_input" : ["meteo_temperature_avg","meteo_temperature_min","meteo__pressure_saturation_avg","meteo_temperature_max"],
+
+    "cols_mat" : ["distance_piezo_meteo","piezo_station_longitude","piezo_station_latitude","meteo_latitude","meteo_longitude", "meteo_temperature_avg", "meteo_temperature_avg_threshold", "meteo_temperature_min", "meteo_temperature_max", "meteo_temperature_min_ground", "hydro_observation_result_elab", "hydro_status_code", "hydro_qualification_code", "hydro_hydro_quantity_elab"],
+
+    "pizo_cols" : ["piezo_station_investigation_depth", "piezo_obtention_mode", "piezo_status", "piezo_qualification", "piezo_measure_nature_code","piezo_station_department_code"],
+    "target" : "piezo_groundwater_level_category"
+
 }
