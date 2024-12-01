@@ -7,6 +7,10 @@ data/
 test_data.ipynb
 *.pyc
 db.*
+catboost_info/catboost_training.json
+*.tmp
+*.tsv
+*.tfevents
 ### Matteo ###
 matteo*
 dash_yassine.py

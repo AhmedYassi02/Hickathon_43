@@ -232,4 +232,6 @@ if __name__ == "__main__":
         load_if_exists=True,
         direction="maximize"
     )
+    study.enqueue_trial(
+        {"learning_rate": 0.05, "depth": 3, "min_data_in_leaf": 5})
     study.optimize(objective, n_trials=200)
