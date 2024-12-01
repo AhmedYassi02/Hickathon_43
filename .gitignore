@@ -3,6 +3,7 @@ data/
 .gitignore
 /data/*
 __pycacache__/
+*.zip
 ### Yassine ###
 test_data.ipynb
 *.pyc
