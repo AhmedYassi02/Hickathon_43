@@ -868,8 +868,7 @@ class TimeTnx(Transformer):
         # X.iloc[X_error.index] = np.nan
 
         X[self.columns] = X[self.columns].fillna(self.mean)
-        print(
-            f">> (Info - TimeTnx) fill na avec mean = {self.mean['meteo_time_tn']} & {self.mean['meteo_time_tx']}")
+        print(f">> (Info - TimeTnx) fill na avec mean = {self.mean['meteo_time_tn']} & {self.mean['meteo_time_tx']}")
 
         return X
 
