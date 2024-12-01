@@ -38,5 +38,6 @@ We also tried combining the three models using a voting classifier
 
 ## How to run the code
 1. Clone the repository
-2. Run processing_clean.ipynb to clean and preprocess the data and chose a model to train
-3. Run submission_clean.ipynb to make a submission
+2. Download the data from the hackathon repository and place it in the `data` folder
+3. Run processing_clean.ipynb to clean and preprocess the data and chose a model to train
+4. Run submission_clean.ipynb to make a submission
