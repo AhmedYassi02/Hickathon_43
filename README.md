@@ -36,4 +36,7 @@ All transformations are coded in classes inside the `transformers.py` file and t
 We used a Random Forest Classifier, XGBoost and a CatBoost model to predict the level of ground water. We then used optuna to fine-tune the hyperparameters of each model
 We also tried combining the three models using a voting classifier 
 
-
+## How to run the code
+1. Clone the repository
+2. Run processing_clean.ipynb to clean and preprocess the data and chose a model to train
+3. Run submission_clean.ipynb to make a submission
