@@ -56,7 +56,8 @@ class DropNaRate(Transformer):
 
         # Ne pas drop "meteo_temperature_min_ground"
         if 'meteo_temperature_min_ground' in self.cols_to_drop:
-            self.cols_to_drop = self.cols_to_drop.drop('meteo_temperature_min_ground',errors='ignore') 
+            self.cols_to_drop = self.cols_to_drop.drop(
+                'meteo_temperature_min_ground', errors='ignore')
 
         print(f">> (Info) Droped columns : {self.cols_to_drop.to_list()}")
 
@@ -83,7 +84,6 @@ class DateTransformer(Transformer):
 
     def fit(self, X, y=None):
         self.date_cols = [col for col in X.columns if 'date' in col]
-        self.time_cols = [col for col in X.columns if 'time' in col]
         return self
 
     def transform(self, X):
@@ -95,9 +95,6 @@ class DateTransformer(Transformer):
             else:
                 X.drop(col, axis=1, inplace=True)
             # X.rename(columns={'meteo_date': 'date'}, inplace=True)
-
-        for col in self.time_cols:
-            X[col] = X[col].apply(lambda x: np.cos(x * 2 * np.pi / 24))
         return X
 
 
@@ -317,7 +314,8 @@ class CleanFeatures(Transformer):
         self.rain_means_by_month_department = None
 
     def fit(self, X, y=None):
-        print(f">> (Info) Calculating medians and means for {self.cols_to_handle}")
+        print(
+            f">> (Info) Calculating medians and means for {self.cols_to_handle}")
 
         # Ensure all columns in cols_to_handle are numeric
         for col in self.cols_to_handle:
@@ -329,14 +327,16 @@ class CleanFeatures(Transformer):
                 self.department_medians[col] = (
                     X.groupby(self.department_col)[col].median()
                 )
-                self.global_means[col] = X[col].mean()  # Calculate global mean for fallback
+                # Calculate global mean for fallback
+                self.global_means[col] = X[col].mean()
 
         # Calculate mean rain by department and month
         if "meteo_rain_height" in self.cols_to_handle:
             X[self.date_col] = pd.to_datetime(X[self.date_col])
             X['month'] = X[self.date_col].dt.month
             self.rain_means_by_month_department = (
-                X.groupby([self.department_col, 'month'])["meteo_rain_height"].mean()
+                X.groupby([self.department_col, 'month'])[
+                    "meteo_rain_height"].mean()
             )
             print(f">> (Info) Rainfall means by department and month calculated.")
 
@@ -368,13 +368,15 @@ class CleanFeatures(Transformer):
             X['month'] = X[self.date_col].dt.month
 
             # Create a Series with aligned rain values
-            rain_fill_values = X.set_index([self.department_col, 'month']).index.map(self.rain_means_by_month_department)
+            rain_fill_values = X.set_index([self.department_col, 'month']).index.map(
+                self.rain_means_by_month_department)
 
             # Ensure the result is a Series with the same index as X
             rain_fill_values = pd.Series(rain_fill_values, index=X.index)
 
             # Fill missing values in "meteo_rain_height"
-            X["meteo_rain_height"] = X["meteo_rain_height"].fillna(rain_fill_values)
+            X["meteo_rain_height"] = X["meteo_rain_height"].fillna(
+                rain_fill_values)
 
             X.drop(columns=['month'], inplace=True)  # Remove temporary column
         return X
@@ -422,7 +424,8 @@ class CleanPizo(Transformer):
         self.cols_to_handle = cols_to_handle
         self.department_means = {}  # For storing department-level means for numerical columns
         self.global_means = {}  # For storing global means for numerical columns
-        self.column_modes = {}  # For storing the most frequent values (modes) for categorical columns
+        # For storing the most frequent values (modes) for categorical columns
+        self.column_modes = {}
         self.one_hot_encoders = {}  # For storing one-hot encoders for categorical columns
 
     def fit(self, X, y=None):
@@ -432,7 +435,8 @@ class CleanPizo(Transformer):
         depth_col = "piezo_station_investigation_depth"
         if depth_col in self.cols_to_handle:
             # Calculate department-level means
-            self.department_means[depth_col] = X.groupby(self.department_col)[depth_col].mean()
+            self.department_means[depth_col] = X.groupby(
+                self.department_col)[depth_col].mean()
             # Calculate global mean as fallback
             self.global_means[depth_col] = X[depth_col].mean()
 
@@ -445,10 +449,12 @@ class CleanPizo(Transformer):
                 # Special handling for piezo_measure_nature_code
                 if col == 'piezo_measure_nature_code':
                     X[col] = X[col].astype(str).fillna('0')
-                    X[col] = X[col].apply(lambda x: x if x in ['N', 'I', 'D', 'S'] else '0')
+                    X[col] = X[col].apply(lambda x: x if x in [
+                                          'N', 'I', 'D', 'S'] else '0')
 
                 # Store one-hot encoded column names
-                self.one_hot_encoders[col] = pd.get_dummies(X[col], prefix=col, dtype=int).columns.tolist()
+                self.one_hot_encoders[col] = pd.get_dummies(
+                    X[col], prefix=col, dtype=int).columns.tolist()
 
         print(f">> (Info) Fitting completed: Means, modes, and one-hot encoders prepared.")
         return self
@@ -465,8 +471,8 @@ class CleanPizo(Transformer):
             )
             # Fill remaining missing values with global mean
             X[depth_col] = X[depth_col].fillna(self.global_means[depth_col])
-            print(f">> (Info) Missing values in {depth_col} filled with department means or global mean as fallback.")
-
+            print(
+                f">> (Info) Missing values in {depth_col} filled with department means or global mean as fallback.")
 
         # Handle categorical columns with one-hot encoding and missing value handling
         for col in ['piezo_obtention_mode', 'piezo_status', 'piezo_qualification', 'piezo_measure_nature_code']:
@@ -578,7 +584,8 @@ class CleanTemp(Transformer):
             ])
         )
 
-        X.drop(columns=['meteo_temperature_avg_threshold'], inplace=True, errors='ignore')
+        X.drop(columns=['meteo_temperature_avg_threshold'],
+               inplace=True, errors='ignore')
 
         return X
 
@@ -821,10 +828,10 @@ class TimeTnx(Transformer):
     '''
 
     def __init__(
-            self,
-            delta: int=5,
-            clean: bool=False,
-        ):
+        self,
+        delta: int = 5,
+        clean: bool = False,
+    ):
 
         self.columns = ["meteo_time_tn", "meteo_time_tx"]
         self.delta = delta
@@ -860,18 +867,16 @@ class TimeTnx(Transformer):
 
         # X.iloc[X_error.index] = np.nan
 
-
         X[self.columns] = X[self.columns].fillna(self.mean)
-        print(f">> (Info - TimeTnx) fill na avec mean = {self.mean['meteo_time_tn']} & {self.mean['meteo_time_tx']}")
-
-
+        print(
+            f">> (Info - TimeTnx) fill na avec mean = {self.mean['meteo_time_tn']} & {self.mean['meteo_time_tx']}")
 
         return X
-    
+
     def convert_minute(self, x: int) -> int:
         if pd.isna(x):  # Vérifie si x est NaN
             return np.nan
-        
+
         x_str = str(int(x)).zfill(4)
         minutes = int(x_str[-2:])
         hours = int(x_str[:-2])

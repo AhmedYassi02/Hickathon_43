@@ -81,12 +81,13 @@ columns_to_drop = [
 path_src_dataset = Path("./data/src/X_train_Hi5.csv")
 
 col_yass = ['meteo_date'] + ['prelev_volume_0', 'prelev_volume_1',
-                             'prelev_volume_2', 'prelev_other_volume_sum', 'piezo_station_commune_name']
+                             'prelev_volume_2', 'prelev_other_volume_sum', 'piezo_station_commune_name']  # ORDRE = 4 (en dernier car il supprime les dates )
 # Altitude
 altitude_flo = ["piezo_station_altitude", "meteo_altitude"]  # ORDRE 1
 prelev_flo = ["prelev_volume_0", "prelev_usage_label_0", "prelev_volume_obtention_mode_label_0", "prelev_volume_1", "prelev_usage_label_1",
               "prelev_volume_obtention_mode_label_1", "prelev_volume_2", "prelev_usage_label_2", "prelev_volume_obtention_mode_label_2"]
-col_flo = altitude_flo + prelev_flo
+meteo_time_flo = ["meteo_time_tx", "meteo_time_tn"]
+col_flo = altitude_flo + prelev_flo + meteo_time_flo
 # Insee & rain "CleanFeatures"
 cols_yael_input = ['insee_%_agri', 'meteo_rain_height', 'insee_pop_commune',
                    'insee_med_living_level', 'insee_%_ind', 'insee_%_const']
@@ -108,7 +109,6 @@ pizo_cols = ['piezo_station_investigation_depth', 'piezo_obtention_mode', 'piezo
 # target
 target = "piezo_groundwater_level_category"
 
-
 columns_to_keep = col_yass + cols_yael_input + cols_yael_need + col_flo + \
     cols_lucien_need + cols_lucien_input + cols_mat + [target] + pizo_cols
 
@@ -128,10 +128,41 @@ categorical_var = ['distance_piezo_meteo',
                    'prelev_usage_label_0_EAU TURBINEE (barrage)',
                    'prelev_usage_label_0_nan',
                    'prelev_usage_label_0_infrequent_sklearn',
+                   'prelev_usage_label_1_EAU POTABLE',
+                   'prelev_usage_label_1_EAU TURBINEE (barrage)',
+                   'prelev_usage_label_1_nan',
+                   'prelev_usage_label_1_infrequent_sklearn',
+                   'prelev_usage_label_2_EAU POTABLE',
+                   'prelev_usage_label_2_EAU TURBINEE (barrage)',
+                   'prelev_usage_label_2_nan',
+                   'prelev_usage_label_2_infrequent_sklearn',
                    'prelev_volume_obtention_mode_label_0_Mesure directe',
                    'prelev_volume_obtention_mode_label_0_Volume mesuré',
                    'prelev_volume_obtention_mode_label_0_nan',
-                   'prelev_volume_obtention_mode_label_0_infrequent_sklearn']
+                   'prelev_volume_obtention_mode_label_0_infrequent_sklearn',
+                   'prelev_volume_obtention_mode_label_1_Mesure directe',
+                   'prelev_volume_obtention_mode_label_1_Volume mesuré',
+                   'prelev_volume_obtention_mode_label_1_nan',
+                   'prelev_volume_obtention_mode_label_1_infrequent_sklearn',
+                   'prelev_volume_obtention_mode_label_2_Mesure directe',
+                   'prelev_volume_obtention_mode_label_2_Volume mesuré',
+                   'prelev_volume_obtention_mode_label_2_nan',
+                   'prelev_volume_obtention_mode_label_2_infrequent_sklearn',
+                   "piezo_obtention_mode_Mode d'obtention inconnu",
+                   'piezo_obtention_mode_Valeur mesurée',
+                   'piezo_obtention_mode_Valeur reconstituée',
+                   'piezo_status_Donnée brute',
+                   'piezo_status_Donnée contrôlée niveau 1',
+                   'piezo_status_Donnée contrôlée niveau 2',
+                   'piezo_status_Donnée interprétée',
+                   'piezo_qualification_Correcte',
+                   'piezo_qualification_Incertaine',
+                   'piezo_qualification_Incorrecte',
+                   'piezo_qualification_Non qualifié',
+                   'piezo_measure_nature_code_0',
+                   'piezo_measure_nature_code_D',
+                   'piezo_measure_nature_code_I',
+                   'piezo_measure_nature_code_N']
 
 cont_cols = ['piezo_station_investigation_depth',
              'piezo_station_altitude',
@@ -139,12 +170,16 @@ cont_cols = ['piezo_station_investigation_depth',
              'piezo_station_latitude',
              'meteo_date',
              'meteo_rain_height',
+             'meteo_time_tn',
+             'meteo_time_tx',
              'meteo_temperature_avg',
              'meteo__pressure_saturation_avg',
              'hydro_observation_result_elab',
              'hydro_status_code',
              'hydro_qualification_code',
              'prelev_volume_0',
+             'prelev_volume_1',
+             'prelev_volume_2',
              'prelev_other_volume_sum',
              'insee_%_agri',
              'insee_pop_commune',
@@ -153,25 +188,16 @@ cont_cols = ['piezo_station_investigation_depth',
              'insee_%_const',
              'hydro_observation_log',
              'hydro_hydro_quantity_elab_infrequent_sklearn',
-             "piezo_obtention_mode_Mode d'obtention inconnu",
-             'piezo_obtention_mode_Valeur mesurée',
-             'piezo_obtention_mode_Valeur reconstituée',
-             'piezo_status_Donnée brute',
-             'piezo_status_Donnée contrôlée niveau 1',
-             'piezo_status_Donnée contrôlée niveau 2',
-             'piezo_status_Donnée interprétée',
-             'piezo_qualification_Correcte',
-             'piezo_qualification_Incertaine',
-             'piezo_qualification_Incorrecte',
-             'piezo_qualification_Non qualifié',
-             'piezo_measure_nature_code_0',
-             'piezo_measure_nature_code_D',
-             'piezo_measure_nature_code_I',
-             'piezo_measure_nature_code_N',
              'piezo_measure_nature_code_S']
 
 
+# df = (df
+#       .assign(date=pd.to_datetime(df.meteo_date))
+#       .query("date.dt.month >= 6 and date.dt.month <= 9")
+#       .drop(columns="date")
+#       )
 X = df.drop(columns=target)
+
 
 # Mapping du target
 mapping = {'Very Low': 0, 'Low': 1, 'Average': 2, 'High': 3, 'Very High': 4}
@@ -186,9 +212,10 @@ X_train, X_val, y_train, y_val = train_test_split(
 # Apply the transformers selected
 processing_pipeline = Pipeline(steps=[
     ("DropNaRate", DropNaRate(0.7)),
-    ('PrelevVol', PrelevVol()),
-    ("Prelevement", Prelev(columns=col_flo, usage_label_max_categories=4,
-     mode_label_max_categories=4, scale=1)),
+    ("Prelevol", PrelevVol()),
+    ("MeteoTimeTnx", TimeTnx(delta=5, clean=False)),
+    ("Prelevement", Prelev(columns=prelev_flo,
+     usage_label_max_categories=4, mode_label_max_categories=4, scale=3)),
     ("CleanFeatures", CleanFeatures(cols_yael_input)),
     ("Altitude", AltitudeTrans(columns=[
      "piezo_station_altitude", "meteo_altitude"])),
@@ -205,6 +232,15 @@ processing_pipeline = Pipeline(steps=[
 
 processed_X_train = processing_pipeline.fit_transform(X_train)
 processed_X_val = processing_pipeline.transform(X_val)
+# transformer les colonns catégorielles en catégorielles
+for col in categorical_var:
+    processed_X_train[col] = processed_X_train[col].astype(
+        int).astype('category')
+    processed_X_val[col] = processed_X_val[col].astype(int).astype('category')
+
+# save the pipeline
+with open(out_folder_config / "processing_pipeline_cb.pkl", "wb") as f:
+    pickle.dump(processing_pipeline, f)
 
 
 def objective(trial):
@@ -217,7 +253,7 @@ def objective(trial):
     }
 
     model = cb.CatBoostClassifier(
-        **params, silent=True)
+        **params, silent=True, cat_features=categorical_var)
 
     model.fit(processed_X_train, y_train)
     predictions = model.predict(processed_X_val)
