@@ -115,6 +115,23 @@ class DropCols(Transformer):
 
         return X
 
+class KeepCols(Transformer):
+    def __init__(self, columns: list[str]):
+        self.columns = columns
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+
+        # on ingore les erreurs
+        X = X[self.columns]
+
+        print(f">> (INFO - KeepCols) columns {self.columns} is/are kept.")
+
+        return X
+
 
 class AltitudeTrans(Transformer):
     '''
