@@ -245,7 +245,7 @@ with open(out_folder_config / "processing_pipeline_cb.pkl", "wb") as f:
 
 def objective(trial):
     params = {
-        "iterations": 150,
+        "iterations": 500,
         "learning_rate": trial.suggest_float("learning_rate", 0.05, 0.1, log=True),
         "depth": trial.suggest_int("depth", 4, 10),
         "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 1, 100),
