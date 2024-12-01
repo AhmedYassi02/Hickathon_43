@@ -41,3 +41,5 @@ We also tried combining the three models using a voting classifier
 2. Download the data from the hackathon repository and place it in the `data` folder
 3. Run processing_clean.ipynb to clean and preprocess the data and chose a model to train
 4. Run submission_clean.ipynb to make a submission
+
+You can use optuna files to fine-tune the hyperparameters of a model
