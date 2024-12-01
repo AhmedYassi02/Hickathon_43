@@ -2,7 +2,7 @@
 data/
 .gitignore
 /data/*
-
+__pycacache__/
 ### Yassine ###
 test_data.ipynb
 *.pyc
@@ -11,6 +11,7 @@ catboost_info/catboost_training.json
 *.tmp
 *.tsv
 *.tfevents
+catboost_info/ 
 ### Matteo ###
 matteo*
 dash_yassine.py
