@@ -747,6 +747,7 @@ class PrelevVol(Transformer):
         for col in self.columns:
             X[col] = X[col].fillna(
                 X['piezo_station_commune_name'].map(self.min_vol[col]))
+        X[self.columns] = X[self.columns].fillna(0)
         X.drop(columns=['piezo_station_commune_name'], inplace=True)
         return X
 
