@@ -4,6 +4,9 @@ data/
 /data/*
 __pycacache__/
 *.zip
+correlations_abs.json
+correlations_with_target.json
+.DS_Store
 ### Yassine ###
 test_data.ipynb
 *.pyc
